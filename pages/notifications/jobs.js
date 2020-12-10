@@ -2,41 +2,28 @@
 
 import React, { Component, Fragment } from 'react'
 import Router from 'next/router'
+import axios from 'axios'
 import Link from 'next/link'
 import NewNav from '../../components/NewNav'
-import { Textarea, TextInput, Button, toaster, Pane, Icon, Switch, Avatar, Heading } from 'evergreen-ui'
+import { Text, Table, Button, SideSheet, Pane, Icon, Switch, Avatar, Heading } from 'evergreen-ui'
 import { withAuth } from '../../components/withAuth'
+
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faEllipsisV } from '@fortawesome/free-solid-svg-icons'
+import {UserAgentProvider, UserAgent} from '@quentin-sommer/react-useragent'
+
+// base api url being used
+import getConfig from 'next/config'
+const { publicRuntimeConfig } = getConfig()
 
 class jobs extends Component {
 
-    static async getInitialProps (ctx, user, posts, userfiles, profiles, profile, jobs, teams, userteams, userjobs) {
+    static async getInitialProps (query, user) {
         
-        const res = ctx.res        
-        if (!posts) { posts = null }
-        if (!userfiles) { userfiles = null }
-        if (!profiles) { profiles = null }  
-        if (!profile) { profile = null }
-        if (!jobs) { jobs = null }
-        if (!teams) { teams = null }
-        if (!userteams) { userteams = null } 
-        if (!userjobs) { userjobs = null } 
+        const res = query.res        
 
-        let pendjobs
-        let myjobs
-
-
-        //var pendjobs = jobs.map(job => job.applicants.map(function(app) { if (app.user.toString() === user._id) { return job } }))
-        // pendjobs = pendjobs.filter(array => array.length > 0 )
-        // pendjobs = [].concat.apply([], pendjobs);
-        // pendjobs = pendjobs.filter(array => array != null )
-        //console.log(pendjobs) 
-
-        // myjobs are jobs that I have been accepted for
-        //var myjobs = teams.map(team => team.members.map(function(memb) { if (memb.user.toString() === user._id) { return team } }))
-        // myjobs = myjobs.filter(array => array.length > 0 )
-        // myjobs = [].concat.apply([], myjobs);
-        // myjobs = myjobs.filter(array => array != null )
-        //console.log(myjobs) 
+        const getMyJobs = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/jobs/user/${user._id}`);
+        const myJobs = getMyJobs.data
 
         if (!user) {
             if(res) { // if on server
@@ -47,9 +34,9 @@ class jobs extends Component {
             } else { // on client
                 Router.push('/')                
             }
-            return { posts, userfiles, profiles, profile, jobs, teams, userteams, pendjobs, myjobs, userjobs }
+            return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, myJobs }
         } else {
-            return { posts, userfiles, profiles, profile, jobs, teams, userteams, pendjobs, myjobs, userjobs }
+            return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, myJobs }
         }        
     };
 
@@ -58,15 +45,8 @@ class jobs extends Component {
 
         this.state = {
             user: this.props.user,
-            checked: '',
-            teams: this.props.teams,
-            userteams: this.props.userteams,
-            userjobs: this.props.userjobs,
-            currentprofile: this.props.profile,
-            messagingTab: true,
-            teamsTab: false,
-            jobsTab: false,
-            activityTab: false,
+            myJobs: this.props.myJobs,
+            notificationmenu: false
         }
     };
 
@@ -74,342 +54,834 @@ class jobs extends Component {
         e.preventDefault()
         this.setState({ [e.target.name]: e.target.value })
     }
-
-    async onCheck(e) {
-        console.log(e)
-    }
+ 
 
     render() {
-        const { user, pendjobs, myjobs, userjobs, jobs } = this.props
-        const { userteams, currentprofile,  messagingTab, teamsTab, jobsTab, activityTab } = this.state
-
-        // console.log(jobs)
-        //console.log(pendjobs)
-        // console.log(myjobs)
-        //console.log(userjobs)
-
-        // console.log(jobs)
-        // console.log(this.props.teams)
+        const { user, ua, myJobs } = this.props
+        const { notificationmenu } = this.state
+        
 
         return (
-            <div>
+            <UserAgentProvider ua={ua}>
+                <UserAgent computer tablet>
+                    <div>
+                        <Pane>
+                            <NewNav user={user} ua={ua}/>
+                        </Pane> 
+                        <div className='mainscroll'>
+                            <Pane
+                                width='90%'
+                                elevation={2}
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="row"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                marginBottom={20}
+                                textAlign="center"
+                                paddingLeft={20}
+                                paddingRight={20}
+                                paddingBottom={20}
+                            >
+                                <Pane width='100%'>
 
-                <Pane height='60px'>
-                    <NewNav user={user}/>
-                </Pane> 
-                <div className='mainscroll'>
-                <Pane
-                        width='90%'
-                        elevation={2}
-                        alignItems="center"
-                        justifyContent="center"
-                        flexDirection="row"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        marginBottom={20}
-                        textAlign="center"
-                        paddingLeft={20}
-                        paddingRight={20}
-                        paddingBottom={20}
-                    >
-                        <Pane width='100%'>
+                                    <Pane borderBottom>
+                                        <Heading size={900} marginTop="default" marginBottom={20}>Jobs</Heading>   
+                                    </Pane>     
 
-                            <Pane borderBottom>
-                                <Heading size={900} marginTop="default" marginBottom={50}>Jobs</Heading>   
-                            </Pane>                        
+                                    {
+                                        myJobs.myJobs.length == 0 && myJobs.acceptedJobs.length == 0 &&
+                                        <Fragment>
+                                            <Pane marginBottom={30}>
+                                                <Heading size={700} marginTop="default" marginBottom={50}>You currently do not have any jobs</Heading> 
+                                                <Button onClick={() => Router.push('/jobs')} type="submit" appearance="primary">Search Job listings</Button>
+                                            </Pane>
+                                        </Fragment> 
+                                    }                   
 
-                            
-                            <Pane marginBottom={30}>
-                                <Heading size={700} marginTop="default" marginBottom={20}>My Jobs</Heading> 
+                                    {
+                                        myJobs &&
+                                        <Fragment>
+                                        {
+                                            myJobs.myJobs.length > 0 &&
+                                            <Fragment>
+                                                <Pane>
+                                                    <Heading size={700} marginTop="default">My Jobs</Heading> 
+                                                </Pane>
+
+                                                <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">  
+                                                <ul>
+                                                    {myJobs.myJobs.map(job => (
+                                                        <Pane key={job._id} job={job} paddingBottom={20} borderBottom>
+                                                        <Pane 
+                                                            elevation={2}
+                                                            hoverElevation={3}
+                                                            borderRadius={30}
+                                                            float="left"
+                                                            display="flex"
+                                                            flexDirection="column"
+                                                            height={300}
+                                                            width={250}
+                                                            padding={20}
+                                                            marginRight={20}                                                   
+                                                        >                                                
+                                                            <Avatar
+                                                                marginLeft="auto"
+                                                                marginRight="auto"
+                                                                isSolid
+                                                                size={80}
+                                                                marginBottom={20}
+                                                                name={job.company}
+                                                                src={job.logo}
+                                                                alt={job.company}
+                                                            />
+                                                            <Heading size={500} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                            
+                                                                {job.company}
+                                                            </Heading>
+                                                            <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                                                                {job.jobtitle}
+                                                            </Heading>
+                                                            
+                                                            <Heading size={300} fontWeight={500} textDecoration="none" textAlign="center">
+                                                                {job.location}
+                                                            </Heading>                               
+                                                                
+                                                            <Pane marginTop={20} alignItems="center" textAlign="center">  
+                                                                <Link href={{ pathname: '/job/[id]', query: { jobID: job._id } } } as={`/job/${job._id}`}>
+                                                                    <button className="follow-button">More Info</button>
+                                                                </Link>
+                                                            </Pane> 
+                                                        </Pane>
+
+                                                        <Pane float="left"> 
+                                                            <Table width={450}>
+                                                                <Table.Head>
+                                                                    <Table.TextHeaderCell>
+                                                                    Applicants
+                                                                    </Table.TextHeaderCell>
+                                                                    <Table.TextHeaderCell>
+                                                                    Job Title
+                                                                    </Table.TextHeaderCell>
+                                                                    <Table.TextHeaderCell>
+                                                                    Application
+                                                                    </Table.TextHeaderCell>
+                                                                </Table.Head>
+                                                                <Table.Body height={300}>
+                                                                    {job.applicants.map(app => (
+                                                                    <Table.Row key={app.id}>
+                                                                        <Table.Cell>
+                                                                            <Avatar name={app.username} />
+                                                                            <div className="cursor">
+                                                                                <Link href={`/${app.username}`} as={`/${app.username}`}>
+                                                                                    <Text marginLeft={8} size={300} fontWeight={500}>
+                                                                                        {app.username}
+                                                                                    </Text>    
+                                                                                </Link>
+                                                                            </div>
+                                                                        </Table.Cell>
+                                                                        <Table.TextCell>{job.jobtitle}</Table.TextCell>
+                                                                        <Table.TextCell>
+                                                                            <Link href={{ pathname: `/job/application/[id]/[app_id]`, query: { jobID: job._id, applicantID: app.username }}} as={`/job/application/${job._id}/${app.username}`}>
+                                                                                <Button textAlign="left" justifyContent='center' appearance="primary" intent="success">View Application</Button>           
+                                                                            </Link> 
+                                                                        </Table.TextCell>
+                                                                    </Table.Row>
+                                                                    ))}
+                                                                    {
+                                                                        job.applicants.length == 0 &&
+                                                                        <Fragment>
+                                                                            <Heading size={400} marginTop="default">No requests yet</Heading> 
+                                                                        </Fragment>
+                                                                    }
+                                                                </Table.Body>
+                                                            </Table>                                                       
+                                                        </Pane>                                                          
+
+                                                        <Heading textAlign="left" size={700} marginTop="default" marginBottom={20}>Accepted</Heading>
+                                                        <Pane> 
+                                                            <Table width={250}>
+                                                                <Table.Head>
+                                                                    <Table.TextHeaderCell>
+                                                                    Accepted
+                                                                    </Table.TextHeaderCell>
+                                                                    <Table.TextHeaderCell>
+                                                                    Job Title
+                                                                    </Table.TextHeaderCell>
+                                                                </Table.Head>
+                                                                <Table.Body height={100}>
+                                                                    {job.accepted.map(accepted => (
+                                                                    <Table.Row key={accepted.id}>
+                                                                        <Table.Cell>
+                                                                            <Avatar name={accepted.username} />
+                                                                            <div className="cursor">
+                                                                                <Link href={`/${accepted.username}`} as={`/${accepted.username}`}>
+                                                                                    <Text marginLeft={8} size={300} fontWeight={500}>
+                                                                                        {accepted.username}
+                                                                                    </Text>    
+                                                                                </Link>
+                                                                            </div>
+                                                                        </Table.Cell>
+                                                                        <Table.TextCell>{job.jobtitle}</Table.TextCell>
+                                                                    </Table.Row>
+                                                                    ))}
+                                                                    {
+                                                                        job.accepted.length == 0 &&
+                                                                        <Fragment>
+                                                                            <Heading size={400} marginTop="default">You haven't accepted anyone for this job listing yet</Heading> 
+                                                                        </Fragment>
+                                                                    }
+                                                                </Table.Body>
+                                                            </Table>                                                       
+                                                        </Pane>  
+
+                                                                
+                                                        </Pane>
+                                                    ))}                   
+                                                </ul>
+                                                </Pane>
+                                                
+
+                                            </Fragment>
+                                            
+                                        }
+                                        </Fragment>
+                                    }
+                                    {
+                                        myJobs &&
+                                        <Fragment>
+                                        {
+                                            myJobs.acceptedJobs.length > 0 &&
+                                            <Fragment>
+                                                <Pane marginBottom={30}>
+                                                    <Heading size={700} marginTop="default">Accepted Jobs</Heading> 
+                                                </Pane>
+                                                <ul>
+                                                    {myJobs.acceptedJobs.map(job => (
+                                                        <Pane key={job._id} job={job}                                           
+                                                            elevation={2}
+                                                            hoverElevation={3}
+                                                            borderRadius={30}
+                                                            display="flex"
+                                                            flexDirection="column"
+                                                            height={325}
+                                                            width={250}
+                                                            padding={20}
+                                                            marginLeft="auto"
+                                                            marginRight="auto"                                                    
+                                                        >                                             
+                                                            <Avatar
+                                                                marginLeft="auto"
+                                                                marginRight="auto"
+                                                                isSolid
+                                                                size={80}
+                                                                marginBottom={20}
+                                                                name={job.company}
+                                                                src={job.logo}
+                                                                alt={job.company}
+                                                            />
+                                                            <Heading size={500} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                            
+                                                                {job.company}
+                                                            </Heading>
+                                                            <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                                                                {job.jobtitle}
+                                                            </Heading>
+                                                            
+                                                            <Heading size={300} fontWeight={500} textDecoration="none" textAlign="center">
+                                                                {job.location}
+                                                            </Heading>                               
+                                                                
+                                                            <Pane marginTop={20} alignItems="center" textAlign="center">  
+                                                                <Link href={{ pathname: '/job/[id]', query: { jobID: job._id } } } as={`/job/${job._id}`}>
+                                                                    <button className="follow-button">More Info</button>
+                                                                </Link>
+                                                            </Pane>                                 
+                                                        </Pane>
+                                                    ))}                   
+                                                </ul>
+                                            </Fragment>
+                                        }
+                                    </Fragment>
+                                    }
+
+                                    {
+                                        myJobs &&
+                                        <Fragment>
+                                        {
+                                            myJobs.appliedJobs.length > 0 &&
+                                            <Fragment>
+                                                <Pane marginBottom={30}>
+                                                    <Heading size={700} marginTop="default">Applied Jobs</Heading> 
+                                                </Pane>
+                                                <ul>
+                                                    {myJobs.appliedJobs.map(job => (
+                                                        <Pane key={job._id} job={job}                                           
+                                                            elevation={2}
+                                                            hoverElevation={3}
+                                                            borderRadius={30}
+                                                            display="flex"
+                                                            flexDirection="column"
+                                                            height={325}
+                                                            width={250}
+                                                            padding={20}
+                                                            marginLeft="auto"
+                                                            marginRight="auto"                                                    
+                                                        >                                             
+                                                            <Avatar
+                                                                marginLeft="auto"
+                                                                marginRight="auto"
+                                                                isSolid
+                                                                size={80}
+                                                                marginBottom={20}
+                                                                name={job.company}
+                                                                src={job.logo}
+                                                                alt={job.company}
+                                                            />
+                                                            <Heading size={500} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                            
+                                                                {job.company}
+                                                            </Heading>
+                                                            <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                                                                {job.jobtitle}
+                                                            </Heading>
+                                                            
+                                                            <Heading size={300} fontWeight={500} textDecoration="none" textAlign="center">
+                                                                {job.location}
+                                                            </Heading>                               
+                                                                
+                                                            <Pane marginTop={20} alignItems="center" textAlign="center">  
+                                                                <Link href={{ pathname: '/job/[id]', query: { jobID: job._id } } } as={`/job/${job._id}`}>
+                                                                    <button className="follow-button">More Info</button>
+                                                                </Link>
+                                                            </Pane>                                 
+                                                        </Pane>
+                                                    ))}                   
+                                                </ul>
+                                            </Fragment>
+                                        }
+                                    </Fragment>
+                                    }    
+                                </Pane>                    
+                            </Pane>  
+                        </div>
+
+                        <div className='sidebar'>
+                            <Pane
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="row"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={20}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom                        
+                            >
+                                <Pane>
+                                    <Avatar
+                                        marginLeft="auto"
+                                        marginRight="auto"
+                                        isSolid
+                                        size={80}
+                                        marginBottom={10}
+                                        name={user.username}
+                                        alt={user.username}
+                                        src={user.avatar}
+                                    />
+                                    <Heading
+                                        fontSize={20}
+                                        lineHeight=" 1.2em"
+                                        marginBottom={10}
+                                        textAlign="center"
+                                    >
+                                    {user.username}
+                                    </Heading>
+                                </Pane>                                        
                             </Pane>
+                            <Pane 
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="column"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={10}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom  
+                                >                            
+                                    <Link href="teams">                                                                           
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Teams</span>
+                                        </a>
+                                    </Link>
+                                    <Pane>
+                                        <Icon icon='chevron-left' color="info"/>
+                                        <Link href="jobs"> 
+                                            <a className="navitem">
+                                                <span type="footnote" className="myaccount-sidebar">Jobs</span>
+                                            </a>
+                                        </Link>
+                                    </Pane>   
+                                    <Link href="messaging"> 
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Messages</span>
+                                        </a> 
+                                    </Link>  
+                                    <Link href="activity"> 
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Activity</span>
+                                        </a>
+                                    </Link>
+                            </Pane>
+                            <Pane 
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="column"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={10}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom  
+                                >
+                                    <Link href="/settings/profile"> 
+                                        <a className="navitem" >
+                                            <span type="footnote" className="myaccount-sidebar">Profile</span>
+                                        </a>  
+                                    </Link>  
+                                    <Link href="/settings/social">                                                  
+                                        <a className="navitem" >
+                                            <span type="footnote" className="myaccount-sidebar">Social</span>
+                                        </a>
+                                    </Link>
+                            </Pane>
+                        </div>    
+                    </div>
+                </UserAgent>
 
-                            
-                            <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
+
+                <UserAgent mobile>
+                    <div>
+                        <Pane>
+                            <NewNav user={user} ua={ua}/>
+                        </Pane> 
+
+                        <Pane textAlign='right' marginRight={30} marginTop={10}>
+                            <button mode="default" className="nav-auth-button" onClick={() => this.setState({ notificationmenu: true })}>                                                                                               
+                                <a className="navitem">
+                                    <FontAwesomeIcon size='lg' icon={faEllipsisV} />
+                                </a>                                                    
+                            </button>                          
+                        </Pane>
+
+                        <Pane
+                            alignItems="center"
+                            justifyContent="center"
+                            flexDirection="row"
+                            display="flex"
+                            marginLeft="auto"
+                            marginRight="auto"
+                            marginBottom={20}
+                            textAlign="center"
+                            paddingLeft={20}
+                            paddingRight={20}
+                            paddingBottom={20}
+                        >
+                            <Pane width='100%'>
+
+                                <Pane borderBottom>
+                                    <Heading size={900} marginTop={-50} marginBottom={10}>Jobs</Heading>   
+                                </Pane>     
+
                                 {
-                                    userjobs.length > 0 ?
+                                    myJobs.myJobs.length == 0 && myJobs.acceptedJobs.length == 0 &&
                                     <Fragment>
-                                        <ul>
-                                            {userjobs.map(userjob => (
-                                                <Pane key={userjob._id} userjob={userjob} 
-                                                    marginX={20} marginBottom={20} float="left">
-                                                    <Pane
+                                        <Pane marginBottom={30}>
+                                            <Heading size={700} marginTop="default" marginBottom={50}>You currently do not have any jobs</Heading> 
+                                            <Button onClick={() => Router.push('/jobs')} type="submit" appearance="primary">Search Job listings</Button>
+                                        </Pane>
+                                    </Fragment> 
+                                }                   
+
+                                {
+                                    myJobs &&
+                                    <Fragment>
+                                    {
+                                        myJobs.myJobs.length > 0 &&
+                                        <Fragment>
+                                            <Pane>
+                                                <Heading size={700} marginTop="default" marginBottom={10}>My Jobs</Heading> 
+                                            </Pane>
+
+                                            <Pane justifyContent="center" alignItems="center">  
+                                            <ul>
+                                                {myJobs.myJobs.map(job => (
+                                                    <Pane key={job._id} job={job} paddingBottom={20} borderBottom>
+                                                    <Pane 
                                                         elevation={2}
-                                                        borderRadius={4}
+                                                        hoverElevation={3}
+                                                        borderRadius={30}
                                                         display="flex"
-                                                        alignItems="left"
-                                                        textAlign="left"
                                                         flexDirection="column"
                                                         height={300}
                                                         width={250}
-                                                        marginBottom={10}
                                                         padding={20}
-                                                    >
-                                                        <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
-                                                        {userjob.jobtitle}
+                                                        marginBottom={20}                                                  
+                                                    >                                                
+                                                        <Avatar
+                                                            marginLeft="auto"
+                                                            marginRight="auto"
+                                                            isSolid
+                                                            size={80}
+                                                            marginBottom={20}
+                                                            name={job.company}
+                                                            src={job.logo}
+                                                            alt={job.company}
+                                                        />
+                                                        <Heading size={500} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                            
+                                                            {job.company}
                                                         </Heading>
-
-                                                        <div className="_3IRACUpJuf5zmxb_ipdgBu">                    
-                                                            <p className="_2KKuUlx5EWHCAlRvvNnSWi">{userjob.description}</p>
-                                                        </div>
-                                            
-
-                                                        <Pane marginTop={40} alignItems="center" textAlign="center">
-                                                            <Link href={'job/[id]'} as={`job/${userjob._id}`}><a>More Info</a></Link>
-                                                            {
-                                                                userjob.user.toString() == user._id &&
-                                                                <Fragment>
-                                                                    <Button marginLeft={20} onClick={() => this.deleteTeam(userjob)} textAlign="center"  type="submit" appearance="primary" intent="danger">Delete</Button>
-                                                                </Fragment>
-                                                            }
-                                                        </Pane>                                                
+                                                        <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                                                            {job.jobtitle}
+                                                        </Heading>
+                                                        
+                                                        <Heading size={300} fontWeight={500} textDecoration="none" textAlign="center">
+                                                            {job.location}
+                                                        </Heading>                               
+                                                            
+                                                        <Pane marginTop={20} alignItems="center" textAlign="center">  
+                                                            <Link href={{ pathname: '/job/[id]', query: { jobID: job._id } } } as={`/job/${job._id}`}>
+                                                                <button className="follow-button">More Info</button>
+                                                            </Link>
+                                                        </Pane> 
                                                     </Pane>
-                                                </Pane>
-                                            ))}                   
-                                        </ul>
-                                    </Fragment>
-                                    :
-                                    <Fragment>
-                                        <Heading size={400}>No jobs</Heading> 
-                                    </Fragment>
-                                }
-                                
-                            </Pane>     
 
-                            <Pane marginBottom={30}>
-                                <Heading size={700} marginTop="default" marginBottom={20}>Pending</Heading> 
-                            </Pane>
-
-                            {
-                                userjobs.length > 0 ?
-                                <Fragment>
-                                    <ul>
-                                        {userjobs.map(userjob => (
-                                            <Pane key={userjob._id} userjob={userjob} 
-                                                marginBottom={20} >
-                                                <Pane
-                                                    borderRadius={4}
-                                                    display="flex"
-                                                    alignItems="left"
-                                                    textAlign="left"
-                                                    flexDirection="column"
-                                                    marginBottom={10}
-                                                >
-                                                    
-                                                    <div className='username'>
-                                                        <Link href={`/job/${userjob._id}`} as={`/job/${userjob._id}`} >                                                            
-                                                            <Heading size={700} marginTop="default" textAlign='left' marginBottom={20}>{userjob.jobtitle}</Heading>                                                            
-                                                        </Link>
-                                                    </div>   
-                                                    {
-                                                        userjob.applicants.length > 0 ?
-                                                        <Fragment>
-                                                            <ul>
-                                                                {userjob.applicants.map(app => (
-                                                                    <Pane key={app._id} app={app}
-                                                                        elevation={1}
-                                                                        margin={1}
-                                                                        display="flex"
-                                                                        justifyContent="center"
-                                                                        flexDirection="column"
-                                                                        float="left"
-                                                                        paddingTop={20}
-                                                                        paddingBottom={40}
-                                                                        paddingRight={20}
-                                                                        paddingLeft={20} 
-                                                                    >                                            
-                                                                        <Avatar
-                                                                            marginLeft="auto"
-                                                                            marginRight="auto"
-                                                                            isSolid
-                                                                            size={90}
-                                                                            marginBottom={20}
-                                                                            name="cian"
-                                                                            alt="cian o shea"
-                                                                            src={app.avatar}
-                                                                        />
-                                                                        <div className='username'>
-                                                                            <Link href={`/${app.user}`} as={`/${app.user}`}>
-                                                                                <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                                 
-                                                                                {app.name}                                               
-                                                                                </Heading>
+                                                    <Pane> 
+                                                        <Table width='auto'>
+                                                            <Table.Head>
+                                                                <Table.TextHeaderCell>
+                                                                Applicants
+                                                                </Table.TextHeaderCell>
+                                                                <Table.TextHeaderCell>
+                                                                Job Title
+                                                                </Table.TextHeaderCell>
+                                                                <Table.TextHeaderCell>
+                                                                Application
+                                                                </Table.TextHeaderCell>
+                                                            </Table.Head>
+                                                            <Table.Body maxHeight={300}>
+                                                                {job.applicants.map(app => (
+                                                                <Table.Row key={app.id}>
+                                                                    <Table.Cell>
+                                                                        <Avatar name={app.username} />
+                                                                        <div className="cursor">
+                                                                            <Link href={`/${app.username}`} as={`/${app.username}`}>
+                                                                                <Text marginLeft={8} size={300} fontWeight={500}>
+                                                                                    {app.username}
+                                                                                </Text>    
                                                                             </Link>
                                                                         </div>
-                                                                        
+                                                                    </Table.Cell>
+                                                                    <Table.TextCell>{job.jobtitle}</Table.TextCell>
+                                                                    <Table.TextCell>
+                                                                        <Link href={{ pathname: `/job/application/[id]/[app_id]`, query: { jobID: job._id, applicantID: app.username }}} as={`/job/application/${job._id}/${app.username}`}>
+                                                                            <Button fontSize={16} textAlign="left" justifyContent='center' appearance="primary" intent="success">View</Button>           
+                                                                        </Link> 
+                                                                    </Table.TextCell>
+                                                                </Table.Row>
+                                                                ))}
+                                                                {
+                                                                    job.applicants.length == 0 &&
+                                                                    <Fragment>
+                                                                        <Heading size={400} marginTop="default">No requests yet</Heading> 
+                                                                    </Fragment>
+                                                                }
+                                                            </Table.Body>
+                                                        </Table>                                                       
+                                                    </Pane>                                                          
 
-                                                                        <Heading size={400} marginBottom={10} fontWeight={500} textDecoration="none" textAlign="center">
-                                                                        {app.jobtitle}
-                                                                        </Heading>    
-                                                                        <Link href={{ pathname: `/job/application/[id]`, query: { jobID: userjob._id, applicantID: app.user }}} as={`/job/application/${app.name}`}>
-                                                                            <Button textAlign="left" justifyContent='center' appearance="primary" intent="success">Application</Button>           
-                                                                        </Link>                                  
-                                                                    </Pane>
-                                                                ))}                    
-                                                            </ul>
-                                                        </Fragment> 
-                                                        :
-                                                        <Fragment>
-                                                            <Heading size={400} marginTop="default">No requests</Heading> 
-                                                        </Fragment>
-                                                    }                                               
+                                                    <Heading textAlign="center" size={700} marginTop="default" marginBottom={20}>Accepted</Heading>
+                                                    <Pane> 
+                                                        <Table width={250}>
+                                                            <Table.Head>
+                                                                <Table.TextHeaderCell>
+                                                                Accepted
+                                                                </Table.TextHeaderCell>
+                                                                <Table.TextHeaderCell>
+                                                                Job Title
+                                                                </Table.TextHeaderCell>
+                                                            </Table.Head>
+                                                            <Table.Body maxHeight={100}>
+                                                                {job.accepted.map(accepted => (
+                                                                <Table.Row key={accepted.id}>
+                                                                    <Table.Cell>
+                                                                        <Avatar name={accepted.username} />
+                                                                        <div className="cursor">
+                                                                            <Link href={`/${accepted.username}`} as={`/${accepted.username}`}>
+                                                                                <Text marginLeft={8} size={300} fontWeight={500}>
+                                                                                    {accepted.username}
+                                                                                </Text>    
+                                                                            </Link>
+                                                                        </div>
+                                                                    </Table.Cell>
+                                                                    <Table.TextCell>{job.jobtitle}</Table.TextCell>
+                                                                </Table.Row>
+                                                                ))}
+                                                                {
+                                                                    job.accepted.length == 0 &&
+                                                                    <Fragment>
+                                                                        <Heading size={400} marginTop="default">You haven't accepted anyone for this job listing yet</Heading> 
+                                                                    </Fragment>
+                                                                }
+                                                            </Table.Body>
+                                                        </Table>                                                       
+                                                    </Pane>  
 
-                                            
-                                                </Pane>
-                                            </Pane>
-                                        ))}                   
-                                    </ul>
-                                </Fragment>
-                                :
-                                <Fragment>
-                                    <Heading size={400} marginTop="default">No requests</Heading> 
-                                </Fragment>
-                            }
-                                
-
-                                <Pane marginBottom={30}>
-                                    <Heading size={700} marginTop="default" marginBottom={20}>Applied For</Heading> 
-                                </Pane>
-
-                                {/* <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
-                                {
-                                    myjobs.length > 0 ?
-                                    <Fragment>
-                                        <ul>
-                                            {myjobs.map(myjob => (
-                                                <Pane key={myjob._id} myjob={myjob} 
-                                                    marginX={20} marginBottom={20} float="left">
-                                                    <Pane
-                                                        elevation={2}
-                                                        borderRadius={4}
-                                                        display="flex"
-                                                        alignItems="left"
-                                                        textAlign="left"
-                                                        flexDirection="column"
-                                                        height={400}
-                                                        width={250}
-                                                        marginBottom={10}
-                                                        padding={20}
-                                                    >
-                                                        <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
-                                                        {myjob.jobtitle}
-                                                        </Heading>
-
-                                                        <div className="_3IRACUpJuf5zmxb_ipdgBu">                    
-                                                            <p className="_2KKuUlx5EWHCAlRvvNnSWi">{myjob.description}</p>
-                                                        </div>
-                                            
-
-                                                        <Pane marginTop={40} alignItems="center" textAlign="center">
-                                                            <Link href={'job/[id]'} as={`job/${myjob._id}`}><a>More Info</a></Link>                                                    
-                                                        </Pane>                                                
+                                                            
                                                     </Pane>
-                                                </Pane>
-                                            ))}                   
-                                        </ul>
-                                    </Fragment>
-                                    :
-                                    <Fragment>
-                                        <Heading size={400} marginTop="default">You have not applied for any jobs. Follow the link to search for jobs:  <Link href={'/jobs'} as={`/jobs`}><a>Jobs</a></Link></Heading>
+                                                ))}                   
+                                            </ul>
+                                            </Pane>
+                                            
+
+                                        </Fragment>
+                                        
+                                    }
                                     </Fragment>
                                 }
+                                {
+                                    myJobs &&
+                                    <Fragment>
+                                    {
+                                        myJobs.acceptedJobs.length > 0 &&
+                                        <Fragment>
+                                            <Pane marginBottom={30}>
+                                                <Heading size={700} marginTop="default">Accepted Jobs</Heading> 
+                                            </Pane>
+                                            <ul>
+                                                {myJobs.acceptedJobs.map(job => (
+                                                    <Pane key={job._id} job={job}                                           
+                                                        elevation={2}
+                                                        hoverElevation={3}
+                                                        borderRadius={30}
+                                                        display="flex"
+                                                        flexDirection="column"
+                                                        height={325}
+                                                        width={250}
+                                                        padding={20}
+                                                        marginLeft="auto"
+                                                        marginRight="auto"                                                    
+                                                    >                                             
+                                                        <Avatar
+                                                            marginLeft="auto"
+                                                            marginRight="auto"
+                                                            isSolid
+                                                            size={80}
+                                                            marginBottom={20}
+                                                            name={job.company}
+                                                            src={job.logo}
+                                                            alt={job.company}
+                                                        />
+                                                        <Heading size={500} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                            
+                                                            {job.company}
+                                                        </Heading>
+                                                        <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                                                            {job.jobtitle}
+                                                        </Heading>
+                                                        
+                                                        <Heading size={300} fontWeight={500} textDecoration="none" textAlign="center">
+                                                            {job.location}
+                                                        </Heading>                               
+                                                            
+                                                        <Pane marginTop={20} alignItems="center" textAlign="center">  
+                                                            <Link href={{ pathname: '/job/[id]', query: { jobID: job._id } } } as={`/job/${job._id}`}>
+                                                                <button className="follow-button">More Info</button>
+                                                            </Link>
+                                                        </Pane>                                 
+                                                    </Pane>
+                                                ))}                   
+                                            </ul>
+                                        </Fragment>
+                                    }
+                                </Fragment>
+                                }
 
-                            </Pane>    */}
-                        </Pane>                    
-                    </Pane>  
-                </div>
+                                {
+                                    myJobs &&
+                                    <Fragment>
+                                    {
+                                        myJobs.appliedJobs.length > 0 &&
+                                        <Fragment>
+                                            <Pane marginBottom={30}>
+                                                <Heading size={700} marginTop="default">Applied Jobs</Heading> 
+                                            </Pane>
+                                            <ul>
+                                                {myJobs.appliedJobs.map(job => (
+                                                    <Pane key={job._id} job={job}                                           
+                                                        elevation={2}
+                                                        hoverElevation={3}
+                                                        borderRadius={30}
+                                                        display="flex"
+                                                        flexDirection="column"
+                                                        height={325}
+                                                        width={250}
+                                                        padding={20}
+                                                        marginLeft="auto"
+                                                        marginRight="auto"                                                    
+                                                    >                                             
+                                                        <Avatar
+                                                            marginLeft="auto"
+                                                            marginRight="auto"
+                                                            isSolid
+                                                            size={80}
+                                                            marginBottom={20}
+                                                            name={job.company}
+                                                            src={job.logo}
+                                                            alt={job.company}
+                                                        />
+                                                        <Heading size={500} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                            
+                                                            {job.company}
+                                                        </Heading>
+                                                        <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                                                            {job.jobtitle}
+                                                        </Heading>
+                                                        
+                                                        <Heading size={300} fontWeight={500} textDecoration="none" textAlign="center">
+                                                            {job.location}
+                                                        </Heading>                               
+                                                            
+                                                        <Pane marginTop={20} alignItems="center" textAlign="center">  
+                                                            <Link href={{ pathname: '/job/[id]', query: { jobID: job._id } } } as={`/job/${job._id}`}>
+                                                                <button className="follow-button">More Info</button>
+                                                            </Link>
+                                                        </Pane>                                 
+                                                    </Pane>
+                                                ))}                   
+                                            </ul>
+                                        </Fragment>
+                                    }
+                                </Fragment>
+                                }    
+                            </Pane>                    
+                        </Pane>
+                          
+                    </div>
 
-                <div className='sidebar'>
-                    <Pane
-                        alignItems="center"
-                        justifyContent="center"
-                        flexDirection="row"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        paddingBottom={20}
-                        paddingTop={20}
-                        paddingRight={10}
-                        paddingLeft={10}
-                        textAlign="center"
-                        borderBottom                        
-                    >
-                        <Pane>
-                            <Avatar
+                    <SideSheet
+                            width={300}
+                            isShown={notificationmenu}
+                            onCloseComplete={() => this.setState({ notificationmenu: false })}
+                        >
+                            <Pane
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="row"
+                                display="flex"
                                 marginLeft="auto"
                                 marginRight="auto"
-                                isSolid
-                                size={80}
-                                marginBottom={10}
-                                name="cian"
-                                alt="cian o shea"
-                                src={user.avatar}
-                            />
-                            <Heading
-                                fontSize={20}
-                                lineHeight=" 1.2em"
-                                marginBottom={10}
+                                paddingBottom={20}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
                                 textAlign="center"
+                                borderBottom                        
                             >
-                            {user.name}
-                            </Heading>
-                        </Pane>                                        
-                    </Pane>
-                    <Pane 
-                        alignItems="center"
-                        justifyContent="center"
-                        flexDirection="column"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        paddingBottom={10}
-                        paddingTop={20}
-                        paddingRight={10}
-                        paddingLeft={10}
-                        textAlign="center"
-                        borderBottom  
-                        >
-                             
-                            <a className="sc-1bokkpb-1 blQUzd" href="messaging">
-                                <span type="footnote" className="myaccount-sidebar">Messages</span>
-                            </a>                                                                               
-                            <a className="sc-1bokkpb-1 blQUzd" href="teams">
-                                <span type="footnote" className="myaccount-sidebar">Teams</span>
-                            </a>
-                            <Pane>
-                                <Icon icon='chevron-left' color="info"/>
-                                <a className="sc-1bokkpb-1 blQUzd" href="jobs">
-                                    <span type="footnote" className="myaccount-sidebar">Jobs</span>
-                                </a>
-                            </Pane>   
-                            <a className="sc-1bokkpb-1 blQUzd" href="activity">
-                                <span type="footnote" className="myaccount-sidebar">Activity</span>
-                            </a>
-                    </Pane>
-                    <Pane 
-                        alignItems="center"
-                        justifyContent="center"
-                        flexDirection="column"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        paddingBottom={10}
-                        paddingTop={20}
-                        paddingRight={10}
-                        paddingLeft={10}
-                        textAlign="center"
-                        borderBottom  
-                        >
-                            <a className="sc-1bokkpb-1 blQUzd" href="/settings/profile">
-                                <span type="footnote" className="myaccount-sidebar">Profile</span>
-                            </a>                                                     
-                            <a className="sc-1bokkpb-1 blQUzd" href="/settings/social">
-                                <span type="footnote" className="myaccount-sidebar">Social</span>
-                            </a>
-                    </Pane>
+                                <Pane>
+                                    <Avatar
+                                        marginLeft="auto"
+                                        marginRight="auto"
+                                        isSolid
+                                        size={80}
+                                        marginBottom={10}
+                                        name={user.username}
+                                        alt={user.username}
+                                        src={user.avatar}
+                                    />
+                                    <Heading
+                                        fontSize={20}
+                                        lineHeight=" 1.2em"
+                                        marginBottom={10}
+                                        textAlign="center"
+                                    >
+                                    {user.username}
+                                    </Heading>
+                                </Pane>                                        
+                            </Pane>
+                            <Pane 
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="column"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={10}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom  
+                                >                                    
+                                    <Link href="teams">                                                                           
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Teams</span>
+                                        </a>
+                                    </Link>
+                                    <Pane>
+                                        <Icon icon='chevron-left' color="info"/>
+                                        <Link href="jobs"> 
+                                            <a className="navitem">
+                                                <span type="footnote" className="myaccount-sidebar">Jobs</span>
+                                            </a>
+                                        </Link>
+                                    </Pane>   
+                                    <Link href="messaging"> 
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Messages</span>
+                                        </a> 
+                                    </Link>  
+                                    <Link href="activity"> 
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Activity</span>
+                                        </a>
+                                    </Link>
+                            </Pane>
+                            <Pane 
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="column"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={10}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom  
+                                >
+                                    <Link href="/settings/profile">
+                                        <a className="navitem" >
+                                            <span type="footnote" className="myaccount-sidebar">Profile</span>
+                                        </a>       
+                                    </Link>   
+                                    <Link href="/settings/social">                                           
+                                        <a className="navitem" >
+                                            <span type="footnote" className="myaccount-sidebar">Social</span>
+                                        </a>
+                                    </Link>  
+                            </Pane>
 
-                </div>                       
-                    
-            </div>
+                        </SideSheet>
+                </UserAgent>
+            </UserAgentProvider>
         )
     }
 }

@@ -32,11 +32,11 @@ router.post(
             files
         } = req.body;
 
-        console.log(req.user)
+        console.log(files)
         // Build markdown object
         const markdownFields = {};
         markdownFields.user = req.user.id;
-        markdownFields.name = user.name;
+        markdownFields.username = user.username;
         markdownFields.avatar = user.avatar;
 
         if (newtitle) markdownFields.title = newtitle;
@@ -79,10 +79,36 @@ router.get('/', async (req, res) => {
     }
 });
 
+// @route    GET api/markdown/mymarkdown
+// @desc     Get all user markdowns
+// @access   Private
+router.get('/mymarkdowns/:username', async (req, res) => {
+  try {
+
+    const markdowns = await Markdown.find().sort({ date: -1 });
+
+    var mymarkdowns = markdowns.filter(markdown => markdown.username.toString() === req.params.username)
+
+    var mymarkdowns = [].concat.apply([], mymarkdowns);
+   
+    if (!mymarkdowns) {
+      return res.status(404).json({ msg: 'User is not in a team' });
+    }
+
+    res.json(mymarkdowns);
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'User is not in a team' });
+    }
+    res.status(500).send('Server Error');
+  }
+});
+
 // @route    GET api/markdown/:id
 // @desc     Get markdown by ID
 // @access   Private
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
       const markdown = await Markdown.findById(req.params.id);
   
@@ -112,7 +138,6 @@ router.put('/edit/:id', auth, async (req, res) => {
 
     
     const {
-        user,
         newtitle,
         text,            
         files
@@ -137,7 +162,7 @@ router.put('/edit/:id', auth, async (req, res) => {
         })
         }
 
-      markdown.newtitle = newtitle;
+      markdown.title = newtitle;
       markdown.text = text;  
       
 
@@ -209,7 +234,7 @@ router.put(
   
         const newComment = {
           text: req.body.comment,
-          name: user.name,
+          username: user.username,
           avatar: user.avatar,
           user: req.user.id,
           parentID: req.body.parentID,
@@ -268,6 +293,82 @@ router.put(
       res.status(500).send('Server Error');
     }
   });
+
+
+
+// @route    PUT api/profile/files/like/:id
+// @desc     Like a file
+// @access   Private
+router.put('/like/:id', auth, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
+
+  const { markdownID } = req.body; 
+
+  try {
+
+    const markdown = await Markdown.findById(req.params.id);       
+
+
+    // Check if the post has already been liked
+    if (
+      markdown.likes.filter(like => like.user.toString() === req.user.id).length > 0
+    ) {
+      return res.status(400).json({ msg: 'Post already liked' });
+    }
+
+    markdown.likes.unshift({ user: req.user.id });
+
+    await markdown.save();
+
+    res.json(markdown);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route    PUT api/posts/unlike/:id
+// @desc     Like a post
+// @access   Private
+router.put('/unlike/:id', auth, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
+
+  const { markdownID } = req.body; 
+
+  try {
+
+    const markdown = await Markdown.findById(req.params.id);   
+
+
+
+    // Check if the post has already been unliked
+    if (
+      markdown.likes.filter(like => like.user.toString() === req.user.id).length === 0
+    ) {
+      return res.status(400).json({ msg: 'Post has not been liked' });
+    }
+
+    // Get remove index
+    const removeIndex = markdown.likes
+      .map(like => like.user.toString())
+      .indexOf(req.user.id);
+
+    markdown.likes.splice(removeIndex, 1);
+
+    await markdown.save();
+
+    res.json(markdown);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
 
 
 module.exports = router;

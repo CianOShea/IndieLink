@@ -1,5 +1,3 @@
-/* This file is part of IndieLink. IndieLink is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. IndieLink is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with IndieLink.  If not, see <https://www.gnu.org/licenses/>.*/
-
 // source https://github.com/seibelj/react-simple-markdown-editor/blob/master/src/simple_markdown_editor.js
 /* global window */
 import React, { Component, Fragment } from 'react'
@@ -114,7 +112,7 @@ class SimpleMarkdownEditor extends Component {
     render() {
         return (
             <Pane padding={5} float="right" marginRight={10}>
-                <Tooltip content="Add header text" position={Position.TOP}>
+                
                 <Popover
                     minWidth={50}
                     position={Position.BOTTOM_Left}
@@ -134,11 +132,13 @@ class SimpleMarkdownEditor extends Component {
                     </Menu>
                     }
                 >
+                <Tooltip content="Add header text" position={Position.TOP}>
                     <Button color="muted" appearance="minimal" paddingLeft={8} paddingRight={8}>
-                    {/* <FontAwesomeIcon icon={faHeading} color="#66788A" /> */}
+                        <i className="fa fa-header" aria-hidden="true"></i>                        
                     </Button>
-                </Popover>
                 </Tooltip>
+                </Popover>
+                
                 <Button appearance="minimal" color="muted" onClick={e => this.insertBold(e)} paddingLeft={8} paddingRight={8}>
                 <Tooltip content="Add bold text" position={Position.TOP}>
                     <Icon icon="bold" color="#66788A" />
@@ -171,11 +171,15 @@ class SimpleMarkdownEditor extends Component {
                     <Icon icon="properties" color="#66788A" />
                 </Tooltip>
                 </Button>
-                <AddImg onSelectPicture={(file) => this.onAddPreview(file)} />
+                <Tooltip content="Add an image" position={Position.TOP}>
+                    <AddImg onSelectPicture={(file) => this.onAddPreview(file)} />  
+                </Tooltip>              
 
-                <Button appearance="minimal" color="muted" paddingLeft={8} paddingRight={8} onClick={e => this.insertMath(e)}>
-                
-                </Button>
+                <Tooltip content="Insert a mathematical equation" position={Position.TOP}>
+                    <Button appearance="minimal" color="muted" paddingLeft={8} paddingRight={8} onClick={e => this.insertMath(e)}>
+                        <i className="fa fa-calculator" aria-hidden="true"></i>
+                    </Button>
+                </Tooltip>
             </Pane>
         )
     }

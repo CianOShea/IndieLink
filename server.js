@@ -3,6 +3,7 @@
 const express = require('express')
 const next = require('next')
 const connectDB = require('./config/db');
+const sslRedirect = require('heroku-ssl-redirect').default;
 
 const port = parseInt(process.env.PORT, 10) || 3000
 const dev = process.env.NODE_ENV !== 'production'
@@ -21,6 +22,9 @@ const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME;
 
 app.prepare().then(() => {
   const server = express()
+
+  // redirect to SSL
+  server.use(sslRedirect());
 
   // Connect Database
   connectDB();
@@ -85,22 +89,22 @@ app.prepare().then(() => {
   })
 
   // Define Routes
-  server.use('/api/uploadImage', require('./api/uploadImage'));
-  server.use('/api/uploadVideo', require('./api/uploadVideo'));
-  server.use('/api/uploadAudio', require('./api/uploadAudio'));
-  server.use('/api/uploadText', require('./api/uploadText'));
   server.use('/api/uploadFile', require('./api/uploadFile'));
   server.use('/api/uploaddata', require('./api/uploaddata'));
 
   server.use('/api/markdown', require('./api/markdown'));
   server.use('/api/jobs', require('./api/jobs'));
   server.use('/api/team', require('./api/team'));
+  server.use('/api/jam', require('./api/jam'));
   server.use('/api/comingsoon', require('./api/comingsoon'));
   server.use('/api/users', require('./api/users'));
   server.use('/api/auth', require('./api/auth'));
   server.use('/api/profile', require('./api/profile'));
   server.use('/api/posts', require('./api/posts'));
   server.use('/uploads', express.static('uploads'));
+
+  server.use('/api/feedback', require('./api/feedback'));
+  server.use('/api/message', require('./api/message'));
 
 
 

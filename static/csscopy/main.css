@@ -188,7 +188,7 @@ iframe {
   width: 500px;
   background: #fff;
   border-radius: 10px;
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 

@@ -12,19 +12,19 @@ const router = express.Router();
 const s3 = new aws.S3({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    Bucket: 'indielink-uploads'
+    Bucket: process.env.S3_BUCKET_NAME
 });
 
 const upload = multer({
     storage: multerS3({
       s3: s3,
-      bucket: 'indielink-uploads',
+      bucket: process.env.S3_BUCKET_NAME,
       acl: 'public-read',
       key: function (req, file, cb) {
         cb(null, path.basename( file.originalname, path.extname( file.originalname ) ) + '-' + Date.now() + path.extname( file.originalname ) )
        }
     }),
-    limits:{ fileSize: 2000000 }, // In bytes: 2000000 bytes = 2 MB
+    limits:{ fileSize: 20000000 }, // In bytes: 5000000 bytes = 2 MB
     fileFilter: function( req, file, cb ){
      checkFileType( file, cb );
     }
@@ -70,7 +70,7 @@ router.post( '/upload', ( req, res ) => {
         console.log( 'Error: No File Selected!' );
         res.json( 'Error: No File Selected' );
        } else {
-        // If Success        
+        // If Success
         const imageName = req.files.map(file => file.key);        
         const originalname = req.files.map(file => file.originalname);    
         //const imageLocation = req.files.location;

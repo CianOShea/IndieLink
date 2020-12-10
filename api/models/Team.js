@@ -57,6 +57,9 @@ const TeamSchema = new Schema({
           role: {
             type: String
           },
+          roleID : {
+            type: Schema.Types.ObjectId
+          },
           avatar: {
             type: String
           },
@@ -65,9 +68,87 @@ const TeamSchema = new Schema({
           },
           cv: {
             type: String
-          }    
+          },
+          files: [
+            {      
+                name: {
+                  type: String
+                },      
+                s3path: {
+                  type: String
+                }
+            }   
+          ],    
         }
     ],
+    communicate: [
+      {
+        user: {
+          type: Schema.Types.ObjectId,
+          ref: 'users'
+        },
+        name: {
+          type: String
+        },
+        username: {
+          type: String
+        },
+        role: {
+          type: String
+        },
+        roleID : {
+          type: Schema.Types.ObjectId
+        },
+        avatar: {
+          type: String
+        },
+        description: {
+          type: String
+        },
+        cv: {
+          type: String
+        },
+        files: [
+          {      
+              name: {
+                type: String
+              },      
+              s3path: {
+                type: String
+              }
+          }   
+        ],   
+      }
+  ],
+  messages: [{  
+    username: {
+        type: String,
+        required: true
+    },
+    sender: {
+        type: Schema.Types.ObjectId,
+        ref: 'user',
+        required: true
+    },
+    receiver: {
+        type: Schema.Types.ObjectId,
+        ref: 'user',
+        required: true
+    },
+    message: {
+        type: String,
+        required: true
+    },
+    participants: [{
+        type: Schema.Types.ObjectId,
+        ref: 'user',
+        required: true
+    }],
+    date: {
+        type: Date,
+        default: Date.now
+    }
+  }],
     openRoles: [{
         
         title: {
@@ -80,6 +161,17 @@ const TeamSchema = new Schema({
     mainimage: {
         type: String
     },
+    social: [{  
+      title: {
+        type: String
+      },
+      url: {
+        type: String
+      },
+      link: {
+        type: String
+      }
+    }],
     teamfiles: [
         {
           user: {
@@ -126,8 +218,9 @@ const TeamSchema = new Schema({
                 type: String,
                 required: true
               },
-              name: {
-                type: String
+              username: {
+                type: String,
+                required: true
               },
               avatar: {
                 type: String

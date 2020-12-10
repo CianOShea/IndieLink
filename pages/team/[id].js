@@ -5,7 +5,7 @@ import Router from 'next/router'
 import Link from 'next/link'
 import { withAuth } from '../../components/withAuth'
 import NewNav from '../../components/NewNav'
-import { Textarea, TextInput, Text, Button, toaster, Pane, Heading, Tab, Avatar, Table } from 'evergreen-ui'
+import { Paragraph, TextInput, Text, Button, toaster, Pane, Heading, Tab, Avatar, Dialog } from 'evergreen-ui'
 import Dropzone from 'react-dropzone'
 import axios from 'axios'
 import { Modal } from 'react-bootstrap'
@@ -15,10 +15,14 @@ import getConfig from 'next/config'
 const StorageLocation = 'https://indielink-uploads.s3-eu-west-1.amazonaws.com/'
 const { publicRuntimeConfig } = getConfig()
 
-class id extends Component {
 
-    static async getInitialProps ( {query: {teamID, res}}, user) {
-        //console.log(id)
+class teampage extends Component {
+
+    static async getInitialProps ( query, user) {
+
+        const token = axios.defaults.headers.common['x-auth-token']
+
+        const teamID = query.query.id      
 
         const getTeam = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/team/${teamID}`);        
         const currentteam = getTeam.data
@@ -28,31 +32,31 @@ class id extends Component {
         const newBlobMap = Object.assign({}, newbm)
         currentteam.teamfiles.forEach(file => {
           newBlobMap[file.name] = 'https://indielink-uploads.s3-eu-west-1.amazonaws.com/' + file.s3path
-        })     
+        })    
 
-
-
-
-        
-        if (!user) {
-            if(res) { // if on server
-                res.writeHead(302, {
-                    Location: '/'
-                })
-                res.end()
-            } else { // on client
-                Router.push('/')                
+        if (user) {
+            if(currentteam.members.filter(member => member.user.toString() === user._id).length > 0) {
+                var isTeamMember = true 
+            } else {
+                var isTeamMember = false 
             }
-            return { user, currentteam, newBlobMap }
         } else {
-            return { user, currentteam, newBlobMap }
+            var isTeamMember = false 
         }
+                
+
+       
+        return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, token, user, currentteam, newBlobMap, isTeamMember }
+        
     };
 
     constructor(props) {
         super(props)
 
         this.state = {
+            token: this.props.token,
+            ua: this.props.ua,
+            isTeamMember: this.props.isTeamMember,
             user: this.props.user,
             profile: this.props.profile,
             currentteam: this.props.currentteam,
@@ -68,7 +72,10 @@ class id extends Component {
             openPositions: this.props.currentteam.openPositions,       
             imagesTab: true,
             filesTab: false,
-            filestoupload: []
+            filestoupload: [],
+            uploadDialog: false,
+            isShown: false,
+            deleteDialog: false
         }
     };
 
@@ -77,42 +84,28 @@ class id extends Component {
         this.setState({ [e.target.name]: e.target.value })
     }
 
-    async editTeam(e) {
+
+    async deleteTeam(e) {
         e.preventDefault()
 
-        const { editteam } = this.state
-
-        try {
-            this.setState({
-                editteam: true
-            })
-        } catch (error) {
-            console.error(error.response.data); 
-            toaster.warning(error.response.data.msg); 
-        }         
-
-    };
-
-    async updateTeam(e) {
-        e.preventDefault()
-
-        const { profile, teamname, description, engine, openPositions } = this.state
+        const { currentteam } = this.state
 
         try {
             const config = {
                 headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'x-auth-token': this.props.token
                 }
             };
-            const formData = {
-                teamname,
-                description,
-                engine,
-                openPositions            
-            };
 
-            const res = await axios.put(`/api/team/edit/${this.props.currentteam._id}`, formData, config);    
-            console.log(res) 
+
+            const res = await axios.delete(`/api/team/delete/${currentteam._id}`, config);    
+            
+
+            toaster.success('Team deleted')
+
+            Router.push('/teams')
+
         } catch (error) {
             console.error(error.data); 
             toaster.warning(error.response.data.msg); 
@@ -120,41 +113,17 @@ class id extends Component {
 
     };
 
-    async uploadTeamfiles () {
+
+    async uploadTeamfiles (e) {
+
+        e.preventDefault();
 
         const { filestoupload, currentteam } = this.state
 
-        if (filestoupload.length > 5) {
-            alert('Maximum of 5 files when creating a team')            
-            return      
-        }  
-
         var data = new FormData();
-        if(filestoupload.length == 1) {
-            data.append('newfileupload', filestoupload[0]);            
-        }
-        if(filestoupload.length == 2) {
-            data.append('newfileupload', filestoupload[0]);
-            data.append('newfileupload', filestoupload[1]);          
-        }
-        if(filestoupload.length == 3) {
-            data.append('newfileupload', filestoupload[0]);
-            data.append('newfileupload', filestoupload[1]);
-            data.append('newfileupload', filestoupload[2]);            
-        }
-        if(filestoupload.length == 4) {
-            data.append('newfileupload', filestoupload[0]);
-            data.append('newfileupload', filestoupload[1]);
-            data.append('newfileupload', filestoupload[2]);
-            data.append('newfileupload', filestoupload[3]);             
-        }
-        if(filestoupload.length == 5) {
-            data.append('newfileupload', filestoupload[0]);
-            data.append('newfileupload', filestoupload[1]);
-            data.append('newfileupload', filestoupload[2]);
-            data.append('newfileupload', filestoupload[3]);
-            data.append('newfileupload', filestoupload[4]);            
-        }               
+        data.append('newfileupload', filestoupload);            
+        
+                    
                 
         const response = await axios.post( '/api/uploadFile/upload', data, {
             headers: {
@@ -163,45 +132,30 @@ class id extends Component {
                 'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
             }
         })
-        console.log(response)
-        console.log(response.data.image[0])
+        
 
-        for (var i=0; i<filestoupload.length; i++) {          
-            this.state.filestoupload[i].s3path = response.data.image[i]
-        }
-        console.log(filestoupload)
+        const s3path = response.data.image[0]        
 
         if (response) {
             if ( 200 === response.status ) {
                 try {  
-         
-                    // // Success
-                    // let fileData = response.data;
-                    // console.log( 'filedata', fileData );
-                    // toaster.success('File Uploaded');
-                    // console.log(fileData.image)
-                    // const config = {
-                    //     headers: {
-                    //       'Content-Type': 'application/json'
-                    //     }
-                    // };
-                    // const body = JSON.stringify({filename : fileData.image , filetype: filetype});
-                    // console.log(body)
+            
                     const config = {
                         headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'x-auth-token': this.props.token
                         }
                     };
                     const formData = { filestoupload, currentteam };
         
-                    console.log(formData)
+                    
         
                     const res = await axios.put('/api/team/teamfiles', formData, config);
-                    console.log(res)                                                              
+                                                                                
 
                     this.setState({
                         teamfiles: res.data.teamfiles,
-                        upload: false,
+                        uploadDialog: false,
                         filestoupload: []
                     });  
 
@@ -210,186 +164,297 @@ class id extends Component {
                     toaster.warning(error.response.data.msg); 
                 }
             }   
-        }
-    }
+        }     
 
-    async newDZ(acceptedfiles) {
+    };
 
-        const { filestoupload } = this.state
-  
-        acceptedfiles.map(file => {
-            var newname = file.name.substring(0, file.name.indexOf('.'));
-            file.newname = newname
-            file.description = ''
-            file.s3path = ''
-            file.newtype = file.type.substring(0, file.type.indexOf('/'));
-        })
-        console.log(acceptedfiles)
-       
-        var allfiles = filestoupload.concat(acceptedfiles)      
-
-
-        this.setState({
-            acceptedfiles: acceptedfiles,
-            filestoupload: allfiles
-        }, () => {console.log(this.state.filestoupload)})
-    }
-
-    async removeFile(filetoupload) {
-
-        const { filestoupload } = this.state
-
-        var removefile = filestoupload.filter(filetoremove => filetoremove.name !== filetoupload.name)
-        console.log(removefile)
-
-        this.setState({ 
-            filestoupload: removefile
-         }, () => console.log(this.state.filestoupload))
-    }
+ 
 
   
 
     render() {
-        const { id, user, teammembers } = this.props
-        const { profile, currentteam, editteam, members, openPositions, teamname, description, teamfiles, imagesTab, filesTab, upload, filestoupload, urlMap } = this.state
+        const { ua, user, isTeamMember } = this.props
+        const { isShown, currentteam, editteam, members, openPositions, teamname, description, teamfiles, imagesTab, deleteDialog, urlMap } = this.state
 
-       //console.log(teammembers)
-       //console.log(currentteam.members)
         return (
             <div>
-                <Pane height='60px'>
-                    <NewNav user={user}/>
-                </Pane>
-                <div className='teamidlayout'>
-                    <div className='teamid'> 
-                    <Fragment>  
-                            
-                            <Pane
-                                justifyContent="center"
-                                marginLeft="auto"
-                                marginRight="auto"
-                                paddingTop={20}
-                                paddingRight={10}
-                                paddingLeft={10}
-                                textAlign="center"
-                                marginBottom={30}
-                            >                                   
-                                <Heading marginBottom={10}  size={900} fontWeight={500} textDecoration="none" textAlign="center">{teamname}</Heading>
-                                {
-                                    members.filter(member => member.user.toString() === user._id).length > 0 ?
-                                    <Fragment>
-                                        <Pane
-                                            justifyContent="center"
-                                            marginLeft="auto"
-                                            marginRight="auto"
-                                            paddingTop={20}
-                                            paddingRight={10}
-                                            paddingLeft={10}
-                                            textAlign="center"
-                                            marginBottom={30}
-                                        >
-                                            <Link href={{ pathname: 'edit/[id]', query: { teamID: currentteam._id } } } as={`edit/${currentteam._id}`}>
-                                                <Button textAlign="center"  type="submit" appearance="primary" intent="warning">Edit</Button>
-                                            </Link>
-                                        </Pane>
-                                    </Fragment>
-                                    :
-                                    <Fragment>
-                                        <Pane
-                                            justifyContent="center"
-                                            marginLeft="auto"
-                                            marginRight="auto"
-                                            paddingTop={20}
-                                            paddingRight={10}
-                                            paddingLeft={10}
-                                            textAlign="center"
-                                            marginBottom={30}
-                                        >
-                                            <Link href={{ pathname: 'apply/[id]', query: { teamid: currentteam._id } } } as={`apply/${currentteam._id}`}>
-                                                <Button textAlign="center"  type="submit" appearance="primary" intent="warning">Apply</Button>
-                                            </Link>                                            
-                                        </Pane>
-                                    </Fragment>
-                                }
-                                
-                            </Pane> 
-                            
-                            <Pane
+                <Pane>
+                    <NewNav user={user} ua={ua}/>
+                </Pane>                                                    
+                <Pane
+                    justifyContent="center"
+                    marginLeft="auto"
+                    marginRight="auto"
+                    paddingTop={20}
+                    paddingRight={10}
+                    paddingLeft={10}
+                    textAlign="center"
+                    marginBottom={30}
+                    width="80%"
+                >                                   
+                    <Heading marginBottom={10}  size={900} fontWeight={500} textDecoration="none" textAlign="center">{teamname}</Heading>
+
+                    { currentteam.social.length > 0 &&
+                        <Fragment>
+                            <Pane 
+                                textAlign='center'
                                 alignItems="center"
                                 justifyContent="center"
                                 flexDirection="row"
-                                display="flex"
-                                marginLeft="auto"
-                                marginRight="auto"
-                                paddingBottom={20}
-                                paddingTop={30}
-                                paddingRight={10}
-                                paddingLeft={10}
-                                textAlign="center"
-                                elevation={1}
+                                display="flex" 
+                                marginTop={20}
                             >
-                                 <Markdown source={description} urlMap={urlMap} />
-                            </Pane> 
-          
-                        </Fragment> 
-                        <Fragment>
-                            <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
-                                <Pane
-                                    alignItems="center"
-                                    flexDirection="column"
-                                    display="flex"
-                                    marginLeft="auto"
-                                    marginRight="auto"
-                                    paddingTop={20}
-                                    paddingBottom={40}
-                                    paddingRight={20}
-                                    paddingLeft={20} 
-                                >
-                                    <Heading marginBottom={10}  size={600} fontWeight={500} textDecoration="none" textAlign="center">Team Members</Heading>
-
                                 <ul className='FileNames'>
-                                    {members.map((member, index) => (
-                                        <Pane key={index} member={member}
-                                            elevation={1}
-                                            margin={1}
-                                            display="flex"
+                                    {currentteam.social.map((link) => (
+                                        <Pane key={link._id} link={link}
+                                            alignItems="center"
                                             justifyContent="center"
-                                            flexDirection="column"
-                                            float="left"
-                                            paddingTop={20}
-                                            paddingBottom={40}
-                                            paddingRight={20}
-                                            paddingLeft={20} 
-                                        >                                            
-                                            <Avatar
-                                                marginLeft="auto"
-                                                marginRight="auto"
-                                                isSolid
-                                                size={80}
-                                                marginBottom={20}
-                                                name="cian"
-                                                alt="cian o shea"
-                                                src={member.avatar}
-                                            />
-                                            <Link href={`/${member.user}`} aria-label={`/${member.user}`} textDecoration="none">
+                                            textAlign="center"
+                                            float='left'
+                                        >
+                                            <Pane marginTop={10} marginRight={20} >
+                                                <Markdown source={link.link}/>       
+                                            </Pane>                                                                             
+                                        </Pane>                                                
+                                    ))}                    
+                                </ul> 
+                            </Pane>                                  
+                        </Fragment>
+                    }
+
+                    <Dialog
+                        isShown={deleteDialog}
+                        title={"Delete"}
+                        onCloseComplete={() => this.setState({ deleteDialog: false })}
+                        confirmLabel="Custom Label"
+                        hasFooter={false}
+                    >                   
+                        <Pane marginBottom={20} display="flex" alignItems="center" justifyContent="center">                        
+                            <Heading textAlign='center' size={700}>Are you sure? This cannot be undone.</Heading>
+                        </Pane>
+                        <Pane marginTop={20} marginBottom={20} display="flex" alignItems="center" justifyContent="center">
+                            <Button onClick={(e) => this.deleteTeam(e)} marginRight={20} type="submit" appearance="primary" intent="danger">Delete</Button>                        
+                            <Button onClick={() => this.setState({ deleteDialog: false })} type="submit" appearance="primary">Cancel</Button>
+                        </Pane>
+                    </Dialog> 
+                    
+                    <Pane
+                        justifyContent="center"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={10}
+                    >
+                        {
+                            isTeamMember ?                                                                                
+                            <Fragment>                                        
+                                <Link href={{ pathname: 'edit/[id]', query: { teamID: currentteam._id } } } as={`edit/${currentteam._id}`}>
+                                    <Button iconBefore="edit" textAlign="center"  type="submit" appearance="primary" intent="warning">Edit</Button>
+                                </Link>
+                                {
+                                    currentteam.user == user._id &&
+                                    <Button marginLeft={20} onClick={() => this.setState({ deleteDialog: true })} type="submit" appearance="primary" intent="danger">Delete</Button>
+                                }
+                            </Fragment>
+                            :
+                            <Fragment>
+                                {
+                                    currentteam.openRoles.length > 0 &&
+                                    <Fragment>
+                                    {
+                                        user ? 
+                                        <Fragment>
+                                        <Link href={{ pathname: 'apply/[id]', query: { teamid: currentteam._id } } } as={`apply/${currentteam._id}`}>
+                                            <Button iconBefore="ApplicationIcon" textAlign="center"  type="submit" appearance="primary" intent="warning">Apply</Button>
+                                        </Link>  
+                                        </Fragment>
+                                        :
+                                        <Fragment> 
+                                            <Button onClick={() => this.setState({ isShown: true })} iconBefore="ApplicationIcon" textAlign="center"  type="submit" appearance="primary" intent="warning">Apply</Button>                                                      
+                                        </Fragment>
+                                    }  
+                                    </Fragment>
+                                }
+                            
+                            </Fragment>    
+                                
+                        }       
+                    </Pane>  
+
+                    <Dialog
+                        isShown={isShown}
+                        onCloseComplete={() => this.setState({ isShown: false })}
+                        hasFooter={false}
+                        hasHeader={false}
+                    >
+                        <Heading textAlign='center' size={700} marginTop="default" marginBottom={50}>Please log in to apply.</Heading>                                
+                    </Dialog>                              
+                        
+                    <Fragment>
+                        <Pane
+                            justifyContent="center"
+                            marginLeft="auto"
+                            marginRight="auto"
+                            paddingRight={10}
+                            paddingLeft={10}
+                            textAlign="center"
+                            marginBottom={30}
+                        >
+                            {
+                                currentteam.openRoles.length > 0 &&
+                                <Heading color="purple" size={600} marginTop={20} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">Open Roles</Heading>
+                            }
+                             
+                            <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
+                                <ul>
+                                    {currentteam.openRoles.map(role => (
+                                        <Pane key={role._id} role={role} marginRight={20} float='left'>
+                                            <Pane
+                                                display="flex"
+                                                alignItems="center"
+                                                textAlign="center"
+                                                justifyContent="center"                                                               
+                                                flexDirection="row" 
+                                            >
+                                                <Heading color="blue" size={400} fontWeight={500} textDecoration="none" textAlign="center">
+                                                {role.title}
+                                                </Heading>                                             
+                                            </Pane>
+                                        </Pane>
+                                    ))}                   
+                                </ul>
+                                
+                            </Pane>                                                                                   
+                        </Pane>
+                    </Fragment>
+                    <div className="track" data-glide-el="track">                                    
+                    <ul className="slides">
+                        {currentteam.openRoles.map(role => (
+                            <Pane key={role._id} role={role} 
+                                marginBottom={20}>
+                                <div className="slide">
+                                    <Pane
+                                        //elevation={1}
+                                        borderRadius={30}
+                                        border
+                                        display="flex"
+                                        alignItems="center"
+                                        textAlign="center"
+                                        flexDirection="column"
+                                        height={250}
+                                        width={300}
+                                        marginBottom={10}
+                                        padding={20}
+                                    >
+                                        
+                                            <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                                            {role.title}
+                                            </Heading>
+
+                                            <div className="overflowdiv">                    
+                                                <p className="overflowp">{role.description}</p>
+                                            </div>  
+                                    </Pane>
+                                </div>
+                            </Pane>
+                        ))}                   
+                    </ul>  
+                    </div>
+                        
+                        
+                    <Fragment>
+                        <Pane marginTop={10} clearfix display={"flex"} flexDirection="column" justifyContent="center" alignItems="center" background="tealTint">
+                            <Heading marginTop={10} marginBottom={10}  size={600} fontWeight={500} textDecoration="none" textAlign="center">Team Members</Heading>
+                            <Pane
+                                alignItems="center"
+                                flexDirection="row"
+                                display="flex"
+                                marginTop={20}
+                                marginLeft={10}
+                                marginBottom={40}
+                            >                                    
+
+                            <ul className='FileNames'>
+                                {members.map((member, index) => (
+                                    <Pane key={index} member={member}
+                                        elevation={1}
+                                        display="flex"
+                                        justifyContent="center"
+                                        flexDirection="column"
+                                        alignItems="center"
+                                        float="left"    
+                                        margin={10}  
+                                        marginRight={10}                                   
+                                        paddingTop={20}
+                                        paddingBottom={20}
+                                        paddingRight={20}
+                                        paddingLeft={20} 
+                                        backgroundColor="white"
+                                        borderRadius={30}
+                                    >                                            
+                                        <Avatar
+                                            marginLeft="auto"
+                                            marginRight="auto"
+                                            isSolid
+                                            size={80}
+                                            marginBottom={20}
+                                            name={member.username}
+                                            alt={member.username}
+                                            src={member.avatar}
+                                        />
+                                        <div className="cursor">
+                                            <Link href={`/${member.username}`} aria-label={`/${member.username}`} textDecoration="none">
                                                 <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                                 
-                                                {member.name}                                               
+                                                {member.username}                                               
                                                 </Heading>
                                             </Link>
+                                        </div>
 
-                                            <Heading size={400} fontWeight={500} textDecoration="none" textAlign="center">
-                                            {member.role}
-                                            </Heading>                                                 
-                                        </Pane>
-                                    ))}                    
-                                </ul>     
-                                
-                                </Pane>
+                                        <Heading size={400} fontWeight={500} textDecoration="none" textAlign="center">
+                                        {member.role}
+                                        </Heading>                                                 
+                                    </Pane>
+                                ))}                    
+                            </ul>   
                             </Pane>
-                        </Fragment> 
-                        
-                        {
-                            members.filter(member => member.user.toString() === user._id).length > 0 &&
+                        </Pane>
+                    </Fragment>  
+
+                    <Pane
+                        alignItems="center"
+                        justifyContent="center"
+                        flexDirection="row"
+                        display="flex"
+                        textAlign="center"
+                        marginTop={20}
+                        marginBottom={20}
+                    >
+                        <Heading size={600} fontWeight={500} textDecoration="none" textAlign="center">
+                            Description
+                        </Heading>        
+                    </Pane>                  
+                    
+                    <Pane
+                        alignItems="center"
+                        justifyContent="center"
+                        flexDirection="row"
+                        display="flex"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingBottom={20}
+                        paddingTop={30}
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        elevation={1}
+                    >
+                            <Markdown source={description} urlMap={urlMap} />
+                    </Pane>            
+                
+                    {/* {
+                        isTeamMember &&
                             <Pane
                                 justifyContent="center"
                                 marginLeft="auto"
@@ -400,11 +465,20 @@ class id extends Component {
                                 textAlign="center"
                                 marginBottom={30}
                             >
-                                <Button marginRight={16} onClick={() => this.setState({upload:true})} iconBefore="upload" appearance="primary" intent="none">Upload File</Button>
+                                <Button marginRight={16} onClick={(e) => this.uploadTeamfiles(e)} iconBefore="upload" appearance="primary" intent="none">Upload File</Button>
                             </Pane>
-                        }
-                        
-
+                    }                        
+                    */}
+                    <Pane
+                        justifyContent="center"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingTop={20}
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={30}
+                    >
                         <Tab
                             margin={5}
                             appearance="minimal"
@@ -412,18 +486,9 @@ class id extends Component {
                             onSelect={() => this.setState({ imagesTab: true, filesTab: false })}
                             boxShadow="none!important"
                             outline="none!important"
+                            size={600}
                         >
                             Images
-                        </Tab>
-                        <Tab
-                            margin={5}
-                            isSelected={filesTab}
-                            appearance="minimal"
-                            onSelect={() => this.setState({ imagesTab: false, filesTab: true })}
-                            boxShadow="none!important"
-                            outline="none!important"
-                        >
-                            Code
                         </Tab>
                         { imagesTab  && ( 
                         <Fragment>
@@ -442,14 +507,14 @@ class id extends Component {
                                     <ul className='FileNames'>
                                         {teamfiles.map((teamfile, index) => (
                                             <Pane key={teamfile._id} teamfile={teamfile}
-                                                margin={1}
+                                                
                                                 display="flex"
                                                 justifyContent="center"
                                                 flexDirection="column"
                                                 float="left"
                                                 hoverElevation={4}
                                             >   
-                                                <Link href={{ pathname: 'teamfile/[file_id]', query: { id: profile.user.id, teamID: currentteam._id, file: teamfile._id } } } as={`teamfile/${teamfile._id}`}>
+                                                <Link href={{ pathname: '[id]/[file_id]', query: { teamID: currentteam._id, file: teamfile._id } } } as={`${currentteam._id}/${teamfile._id}`}>
                                                     <Pane>
                                                         <img className="video" src={StorageLocation + teamfile.s3path}  />                                                                    
                                                     </Pane>
@@ -460,79 +525,13 @@ class id extends Component {
                                 </Pane>
                             </Pane>
                         </Fragment>  
-                         )} 
-                         { filesTab && (
-                         <Fragment>
-                             Files
-                         </Fragment>
-                         )}
+                        )} 
+                    </Pane>
+                </Pane>
 
-                         <Modal size="xl" show={upload} onHide={() => this.setState({upload:false})}>
-                            <Modal.Header closeButton>
-                                <Modal.Title>Upload</Modal.Title>
-                            </Modal.Header>
-                            <Modal.Body >
-                            <Dropzone onDrop={(acceptedfiles) => this.newDZ(acceptedfiles)}>
-                                {({getRootProps, getInputProps}) => (
-                                    <section>
-                                    <div {...getRootProps()}>
-                                        <input onChange={(e) => this.handleFile(e)} {...getInputProps()} />
-                                        <Pane
-                                            border
-                                            borderStyle="dashed"
-                                            borderRadius={3}
-                                            cursor="pointer"
-                                            minHeight={200}
-                                        >
-                                            <Pane
-                                                marginX="auto"
-                                                marginTop={80}
-                                                width={260}
-                                                height={50}
-                                            >
-                                                <Text>
-                                                Drag and drop file(s) or <Button>Upload</Button>
-                                                </Text>
-                                            </Pane>        
-
-                                        </Pane>
-                                    </div>
-                                    </section>
-                                )}                
-                                </Dropzone>
-                                <Table>
-                                    <Table.Head>
-                                        <Table.TextHeaderCell flexBasis={200} flexShrink={0} flexGrow={0}>
-                                            Name
-                                        </Table.TextHeaderCell>
-                                        <Table.TextHeaderCell>
-                                            Type
-                                        </Table.TextHeaderCell>
-                                        <Table.TextHeaderCell>
-                                        </Table.TextHeaderCell>
-                                    </Table.Head>
-                                    <Table.Body height={240}>                                      
-                                        {filestoupload.map((filetoupload, index) => (  
-                                        <Table.Row height={100} key={index} filetoupload={filetoupload}>                             
-                                            <Table.TextCell flexBasis={200} flexShrink={0} flexGrow={0}><Heading size={500} >{filetoupload.newname}</Heading></Table.TextCell>                     
-                                            <Table.TextCell>{filetoupload.type}</Table.TextCell>
-                                            <Table.TextCell>
-                                                    <Button onClick={() => this.removeFile(filetoupload)} appearance="primary" intent="danger">Remove File</Button>
-                                            </Table.TextCell>
-                                        </Table.Row>
-                                        ))}
-                                    </Table.Body>
-                                </Table>
-                            </Modal.Body>
-                            <Modal.Footer>                                                                     
-                                <Button onClick={(e) => this.uploadTeamfiles(e)} appearance="primary" intent="success">Upload</Button>
-                            </Modal.Footer>
-                        </Modal>
-                    </div>
-                </div>  
             </div>
         )
     }
 }
 
-export default withAuth(id)
+export default withAuth(teampage)

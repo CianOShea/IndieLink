@@ -1,30 +1,52 @@
 /* This file is part of IndieLink. IndieLink is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. IndieLink is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with IndieLink.  If not, see <https://www.gnu.org/licenses/>.*/
 
 import React, { Component, Fragment } from 'react'
+import Router from 'next/router'
+import NextLink from 'next/link'
 import axios from 'axios'
 import { toaster, Text, Pane, Heading, Paragraph, Link, TextInput, Button, Avatar } from 'evergreen-ui'
 import {UserAgentProvider, UserAgent} from '@quentin-sommer/react-useragent'
 import { Twitter } from 'react-social-sharing'
 import NewNav from '../components/NewNav'
+import Footer from '../components/Footer'
 import { withAuth } from '../components/withAuth'
+import moment from 'moment'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faComment, faHeart } from '@fortawesome/free-solid-svg-icons'
+
+
+// base api url being used
+import getConfig from 'next/config'
+import { Mobile } from 'aws-sdk'
+const { publicRuntimeConfig } = getConfig()
 
 const StorageLocation = 'https://indielink-uploads.s3-eu-west-1.amazonaws.com/'
 
 class index extends Component {
 
-    static async getInitialProps(args, user, posts, profiles, profile, teams, markdowns) {
+    static async getInitialProps(query, user ) {
 
-        //console.log(profiles) 
-        let followingprofiles = []
-        if (profile) {
-            for (let i=0; i < profile.following.length; i++){
-                profiles.forEach(prof => {if (prof.user._id == profile.following[i].user) { followingprofiles.unshift(prof) }})
-            }
-        }
-        
+
+        const getProfiles = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/profile`);
+        const profiles = getProfiles.data
+
+        const uploads = []
+        profiles.map(function(profile) {
+            if (profile.files.length > 0) {
+                uploads.push.apply(uploads, profile.files)
+            }            
+        })
+
+        uploads.sort((a,b) => {
+            return moment(a.date).diff(b.date);
+        });
+      
+
+        const recentUploads = uploads.slice(0,20)
+              
                
 
-        return { ua: args.req ? args.req.headers['user-agent'] : navigator.userAgent, user, posts, profiles, profile, teams, markdowns, followingprofiles }
+        return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, user, profiles, recentUploads }
       }
 
     constructor(props) {
@@ -32,14 +54,13 @@ class index extends Component {
         
         this.state = {
             user: this.props.user,
-            posts: this.props.posts,
+            ua: this.props.ua,
             profiles: this.props.profiles,
-            profile: this.props.profile,
-            following: this.props.followingprofiles,
-            teams: this.props.teams,
-            markdowns: this.props.markdowns
+            recentUploads: this.props.recentUploads
         }
-    };
+    };    
+
+   
 
     async onChange (e) {
         e.preventDefault()
@@ -48,325 +69,338 @@ class index extends Component {
    
 
     render() {
-        const { following } = this.state
-        const {ua, user, posts, profiles, profile, teams, markdowns} = this.props
-
-        // console.log(user)
-        // console.log(posts)
-        // console.log(profiles)
-        // console.log(profile)
-        // console.log(following)
-        // console.log(teams)
-        // console.log(markdowns)
+        const { user, ua } = this.props
+        const { profiles, recentUploads } = this.state
         
         return (
             <UserAgentProvider ua={ua}>
-                <UserAgent computer tablet>             
-                    <Pane height='60px'>
-                        <NewNav user={user}/>
+                <UserAgent computer tablet>     
+                    <Pane>
+                        <NewNav user={user} ua={ua}/>
                     </Pane>
 
-                    <div className='mainpage'>
-                        <div className='jobs'>     
-                            <Pane 
-                                justifyContent="center"
-                                marginLeft="auto"
-                                marginRight="auto"
-                                paddingTop={20}
-                                paddingRight={10}
-                                paddingLeft={10}
-                                textAlign="center"
-                                marginBottom={50}
-                            >
-                                <Heading marginBottom={10}  size={900} fontWeight={500} textDecoration="none" textAlign="left">Following</Heading>
+                    <Heading padding={10} textAlign='center' size={800} marginTop={10}>What IndieLink can do for independent game developers!</Heading>
 
-                                <Heading marginBottom={10}  size={900} fontWeight={500} textDecoration="none" textAlign="left">Latest</Heading>
-
-                                <Heading marginBottom={10}  size={900} fontWeight={500} textDecoration="none" textAlign="left">Popular</Heading>
-
-
-                                <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
-                                    <Pane
-                                        alignItems="center"
-                                        flexDirection="column"
-                                        display="flex"
-                                        marginLeft="auto"
-                                        marginRight="auto"
-                                        paddingTop={20}
-                                        paddingBottom={40}
-                                        paddingRight={20}
-                                        paddingLeft={20}   
-                                    >    
-
-                                    <ul className='FileNames'>
-                                        {following.map((follow, index) => (
-                                            <Pane key={follow._id} follow={follow}
-                                                margin={1}
-                                                display="flex"
-                                                justifyContent="center"
-                                                flexDirection="column"
-                                                float="left"
-                                            >
-
-                                            <Pane paddingRight={10} alignItems="left" justifyContent="left" textAlign="left"> 
-                                                <Link href={`/${follow.user}`} as={`/${follow.user}`}>
-                                                    <Avatar
-                                                        isSolid
-                                                        size={40}
-                                                        name={follow.user.name}
-                                                        src={follow.user.avatar}
-                                                    />
-                                                </Link>
-                                            </Pane>
                                         
-                                            <Pane paddingTop={5} alignItems="left" justifyContent="left" textAlign="left">                                                
-                                                <Link href={`/${follow.user}`} as={`/${follow.user}`} textDecoration="none">
-                                                    <Heading size={600} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="left">                                                 
-                                                    {follow.user.name}                                            
-                                                    </Heading>
+                    <Pane marginTop={50} marginBottom={100} textAlign='center' alignItems="center" justifyContent="center">                    
+                        <Pane marginTop={20} marginBottom={50} display="flex" flexDirection='row' textAlign='center' alignItems="center" justifyContent="center">
+                            
+                            <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                                <img className="article" src="../static/undraw/portfolio.png" />
+                                <Heading size={600} marginTop="default">Showcase Your Portfolio</Heading>
+                            </Pane>
+
+                            <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                                <img className="article" src="../static/undraw/team.png" />    
+                                <Heading size={600} marginTop="default">Create & Join Teams</Heading>                                   
+                            </Pane>
+
+                            <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                                <img className="article" src="../static/undraw/jobs.png" />
+                                <Heading size={600} marginTop="default">Job Search</Heading>
+                            </Pane> 
+
+                            <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                                <img className="article" src="../static/undraw/article.png" />
+                                <Heading size={600} marginTop="default">Write Articles and Devlogs</Heading>                            
+                            </Pane>
+                        </Pane>
+                 
+                        
+                    </Pane> 
+
+                    <Heading textAlign='center' size={600} marginTop={10}>Check our <Link href="/about" color="blue"><Heading size={600}>About</Heading></Link> page to find out more</Heading>
+
+                    <Heading textAlign='center' size={600} marginTop={10}>We are also Open Source. Check <Link href="https://github.com/CianOShea/IndieLink" target="_blank" color="blue"><Heading size={600}>here</Heading></Link>  for updates!</Heading>
+
+                    <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Users</Heading>
+
+                    <Pane 
+                        alignItems="center"
+                        justifyContent="center"
+                        flexDirection="row"
+                        display="flex"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={50}
+                    >
+                        {
+                            profiles.length > 0 ?
+                            <Fragment>
+                                <ul>
+                                    {profiles.map(profile => (
+                                        <Pane key={profile._id} profile={profile} 
+                                            marginTop={20}
+                                            marginX={10} 
+                                            float="left"
+                                            elevation={2}
+                                            hoverElevation={3}
+                                            borderRadius={30}
+                                            display="flex"
+                                            flexDirection="column"                                               
+                                            width={200}
+                                            padding={20}
+                                        >
+                                        
+                                            <Avatar
+                                                marginLeft="auto"
+                                                marginRight="auto"
+                                                isSolid
+                                                size={100}
+                                                marginBottom={20}
+                                                name={profile.username}                                                    
+                                                alt={profile.username}
+                                                src={profile.avatar}
+                                            />
+                                            
+                                            <div className='cursor'>
+                                                <Link href={`/${profile.username}`} textDecoration="none">
+                                                    <Heading size={800}>{profile.username}</Heading>
                                                 </Link>
-                                            </Pane>
+                                            </div>
 
-                                            <ul className='FileNames'>
-                                                {follow.files.map((file, index) => (
-                                                    <Pane key={file._id} file={file}
-                                                        margin={1}
-                                                        display="flex"
-                                                        justifyContent="center"
-                                                        flexDirection="column"
-                                                        float="left"
-                                                        hoverElevation={4}
-                                                    >
-                                                        <Link href={{ pathname: 'userprofile/[file_id]', query: { id: follow.user._id, file: file._id }}} as={`userprofile/${file._id}`}>
-                                                            <a>
-                                                                <Pane>
-                                                                    <img className="video" src={StorageLocation + file.filename}  />                                                                                    
-                                                                </Pane>   
-                                                            </a>
-                                                        </Link>                                               
-                                                    </Pane>
-                                                ))}                    
-                                            </ul>                                               
-                                            </Pane>
-                                        ))}                    
-                                    </ul> 
-                                    </Pane>
-                                </Pane>
-
-                                <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
-                                    <Pane
-                                        alignItems="center"
-                                        flexDirection="column"
-                                        display="flex"
-                                        marginLeft="auto"
-                                        marginRight="auto"
-                                        paddingTop={20}
-                                        paddingBottom={40}
-                                        paddingRight={20}
-                                        paddingLeft={20}   
-                                    >  
-                                    {
-                                        profiles != null &&
-                                        <ul className='FileNames'>
-                                            {profiles.map((profile, index) => (
-                                                <Pane key={profile._id} profile={profile}
-                                                    margin={1}
-                                                    display="flex"
+                                            <Pane
+                                                alignItems="center"
+                                                justifyContent="center"
+                                                flexDirection="row"
+                                                display="flex"
+                                                textAlign="center"
+                                                marginTop={20}
+                                            >
+                                                <Pane 
+                                                    alignItems="center"
                                                     justifyContent="center"
                                                     flexDirection="column"
-                                                    float="left"
+                                                    display="flex"
+                                                    textAlign="center"
+                                                    padding={10}
                                                 >
+                                                    <Heading size={500}>Uploads</Heading>
+                                                    <Heading size={400}>{profile.files.length}</Heading>                                                        
 
-                                                <Pane paddingRight={10} alignItems="left" justifyContent="left" textAlign="left"> 
-                                                    <Link href={`/${profile.user}`} as={`/${profile.user}`}>
-                                                        <Avatar
-                                                            isSolid
-                                                            size={40}
-                                                            name={profile.user.name}
-                                                            src={profile.user.avatar}
-                                                        />
-                                                    </Link>
-                                                </Pane>
-                                            
-                                                <Pane paddingTop={5} alignItems="left" justifyContent="left" textAlign="left">                                                
-                                                    <Link href={`/${profile.user}`} as={`/${profile.user}`} textDecoration="none">
-                                                        <Heading size={600} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="left">                                                 
-                                                        {profile.user.name}                                            
-                                                        </Heading>
-                                                    </Link>
-                                                </Pane>
-
-                                                <ul className='FileNames'>
-                                                    {profile.files.map((file, index) => (
-                                                        <Pane key={file._id} file={file}
-                                                            margin={1}
-                                                            display="flex"
-                                                            justifyContent="center"
-                                                            flexDirection="column"
-                                                            float="left"
-                                                            hoverElevation={4}
-                                                        >
-                                                            <Link href={{ pathname: 'userprofile/[file_id]', query: { id: profile.user._id, file: file._id }}} as={`userprofile/${file._id}`}>
-                                                                <Pane>
-                                                                    <img className="video" src={StorageLocation + file.filename}  />                                                                                    
-                                                                </Pane>   
-                                                            </Link>                                               
-                                                        </Pane>
-                                                    ))}                    
-                                                </ul>                                               
-                                                </Pane>
-                                            ))}                    
-                                        </ul> 
-                                    }                                      
-                                    </Pane>
-                                </Pane>
-
-
-
-                                <Pane 
-                                    marginTop={50}
-                                    marginLeft={100}
-                                    marginRight={100}
-                                >
-                                    {
-                                        markdowns != null &&
-                                        <Fragment>
-                                            <ul>
-                                                {markdowns.map(markdown => (
-                                                    <Pane key={markdown._id} markdown={markdown} 
-                                                        display="flex"
-                                                        padding={16}
-                                                        background="tint2"
-                                                        borderRadius={3}
-                                                        marginBottom={10}
-                                                        elevation={1}
-                                                    >
-                                                        <Pane flex={1} alignItems="center" display="flex">
-                                                            <div className='username'>
-                                                                <Link href={{ pathname: `/community/[id]`, query: { markdownID: markdown._id }}} as={`/community/${markdown._id}`} textDecoration="none" >
-                                                                    <Heading size={700} fontWeight={500} textDecoration="none" textAlign="center">
-                                                                        {markdown.title}
-                                                                    </Heading>
-                                                                </Link>   
-                                                            </div>                                       
-                                                        </Pane>
-
-                                                        <Pane marginRight={10}>
-                                                            <div className='username'>
-                                                                <Pane float='left' paddingRight={10}>
-                                                                    <Link href={`/${markdown.user}`} as={`/${markdown.user}`}>
-                                                                        <Avatar
-                                                                            isSolid
-                                                                            size={40}
-                                                                            name={markdown.name}
-                                                                            src={markdown.avatar}
-                                                                        />
-                                                                    </Link>
-                                                                </Pane>
-                                                            
-                                                                <Pane float='left' paddingTop={5}>                                                
-                                                                    <Link href={`/${markdown.user}`} as={`/${markdown.user}`} textDecoration="none">
-                                                                        <Heading size={600} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                                 
-                                                                        {markdown.name}                                            
-                                                                        </Heading>
-                                                                    </Link>
-                                                                </Pane>
-                                                            </div>                                  
-                                                        </Pane>
-                                                    </Pane>
-                                                ))}                   
-                                            </ul>                                            
-                                        </Fragment>
-                                    }
-                                </Pane> 
-
-                                <Pane 
-                                    alignItems="center"
-                                    justifyContent="center"
-                                    flexDirection="row"
-                                    display="flex"
-                                    marginLeft="auto"
-                                    marginRight="auto"
-                                    paddingRight={10}
-                                    paddingLeft={10}
-                                    textAlign="center"
-                                >
-                                    {
-                                        teams != null &&
-                                        <Fragment>
-                                            <ul>
-                                                {teams.map(team => (
-                                                    <Pane key={team._id} team={team} 
-                                                        marginTop={20}
-                                                        marginBottom={20} 
-                                                        float="left"
-                                                        elevation={2}
-                                                        hoverElevation={3}
-                                                        borderRadius={4}
-                                                        display="flex"
-                                                        flexDirection="column"
-                                                        height={400}
-                                                        width={300}
-                                                        padding={20}
-                                                    >
-                                                    
-                                                        <Avatar
-                                                            marginLeft="auto"
-                                                            marginRight="auto"
-                                                            isSolid
-                                                            size={80}
-                                                            marginBottom={20}
-                                                            name="cian"
-                                                            src="../static/img3.jfif"
-                                                            alt="cian o shea"
-                                                        />
-                                                        <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                            
-                                                            {team.teamnme}
-                                                        </Heading>
-                                                        <Heading size={500} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
-                                                            {team.gametype}
-                                                        </Heading>
-                                                        
-                                                        <Pane marginTop={20} >                                            
-                                                            <Heading marginBottom={20} size={400} fontWeight={500} textDecoration="none" >
-                                                            Open Roles:
-                                                            </Heading>
-                                                            {team.openRoles.map((openrole, index) => (
-                                                                <ul key={index} openrole={openrole}>
-                                                                    <Heading marginBottom={20} size={400} fontWeight={500} textDecoration="none" >
-                                                                    {openrole.title}
-                                                                    </Heading>                                                            
-                                                                </ul>                                          
-                                                            ))}                                            
-                                                        </Pane>                             
-                                                            
-                                                        <Pane marginTop={30} alignItems="center" textAlign="center">                                            
-                                                            {
-                                                            true ?// job.user.toString() == user._id ?
-                                                                <Fragment>
-                                                                    <Link href={{ pathname: 'team/[id]', query: { teamID: team._id } } } as={`team/${team._id}`}>More Info</Link>
-                                                                    <Button onClick={() => this.deleteJob(job)} textAlign="center"  type="submit" appearance="minimal" intent="danger">Delete</Button>
-                                                                </Fragment>
-                                                                :
-                                                                <Fragment>
-                                                                    <Link href={{ pathname: 'team/[id]', query: { teamID: team._id } } } as={`team/${team._id}`}>More Info</Link>                                              
-                                                                </Fragment>
-                                                            }
-                                                        </Pane>  
-                                                    </Pane>
-                                                ))}                   
-                                            </ul> 
-                                        </Fragment>
-                                    }
-                                    
-                                </Pane>  
+                                                </Pane>                                                   
+                                            </Pane>                            
+                                            <NextLink href={`/${profile.username}`}>
+                                                <button className="follow-button">View Profile</button>  
+                                            </NextLink>
+                                        </Pane>
+                                    ))}                   
+                                </ul> 
+                            </Fragment>
+                            :
+                            <Fragment>
                                 
-                            </Pane>
-                        </div>
-                    </div>
+                            </Fragment>
+                        }
+                        
+                    </Pane>
+
+                    <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Recent Uploads</Heading>
+
+                    <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
+                        <Pane
+                            alignItems="center"
+                            flexDirection="column"
+                            display="flex"
+                            marginLeft="auto"
+                            marginRight="auto"
+                            paddingTop={20}
+                            paddingBottom={40}
+                            paddingRight={20}
+                            paddingLeft={20}   
+                        >                              
+
+                        <ul className='FileNames'>
+                            {recentUploads.map(userfile => (
+                                <Pane key={userfile._id} userfile={userfile}
+                                    
+                                    display="flex"
+                                    justifyContent="center"
+                                    flexDirection="column"
+                                    float="left"
+                                >
+                                    <NextLink href={{ pathname: '[id]/[file_id]', query: { id: userfile.username, file: userfile._id }}} as={`${userfile.username}/${userfile._id}`}>
+                                        <Pane>
+                                            <div className="userfiles_container">                                        
+                                                <img className="userfiles" src={StorageLocation + userfile.filename}  /> 
+                                                <a className="userfiles_overlay">{userfile.comments.length} <FontAwesomeIcon icon={faComment} /> {userfile.likes.length} <FontAwesomeIcon icon={faHeart} /></a>
+                                            </div>                                                                    
+                                        </Pane>   
+                                    </NextLink>
+
+                                </Pane>
+                            ))}                    
+                        </ul>       
+                        
+
+                        </Pane>
+                    </Pane>
+
+                    <Footer ua={ua}/>
+
                 </UserAgent>
+
                 <UserAgent mobile>
+                    <Pane>
+                        <NewNav user={user} ua={ua}/>
+                    </Pane>
+
+                    <Heading padding={10} textAlign='center' size={800} marginTop={10}>What IndieLink can do for independent game developers!</Heading>
+
+                                        
+                    <Pane marginTop={20} marginBottom={50} display="flex" flexDirection='row' textAlign='center' alignItems="center" justifyContent="center">
+                        
+                        <Pane display="flex" flex={1} flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                            <img className="article" src="../static/undraw/portfolio.png" />
+                            <Heading size={400} marginTop="default">Showcase Your Portfolio</Heading>
+                            <img className="article" src="../static/undraw/team.png" />    
+                            <Heading size={400} marginTop="default">Create & Join Teams</Heading>      
+                        </Pane>
+
+                
+
+                        <Pane display="flex" flex={1} flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                            <img className="article" src="../static/undraw/jobs.png" />
+                            <Heading size={400} marginTop="default">Job Search</Heading>
+                            <img className="article" src="../static/undraw/article.png" />
+                            <Heading size={400} marginTop="default">Write Articles and Devlogs</Heading> 
+                        </Pane> 
                     
+                    </Pane>  
+
+                    <Heading textAlign='center' size={600} marginTop={10}>Check our <Link href="/about" color="blue"><Heading size={600}>About</Heading></Link> page to find out more</Heading>
+
+                    <Heading textAlign='center' size={600} marginTop={10}>We are also Open Source. Check <Link href="https://github.com/CianOShea/IndieLink" target="_blank" color="blue"><Heading size={600}>here</Heading></Link>  for updates!</Heading>
+
+                    <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Users</Heading>
+
+                    <Pane 
+                        alignItems="center"
+                        justifyContent="center"
+                        flexDirection="row"
+                        display="flex"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={50}
+                        >
+                        {
+                        profiles.length > 0 ?
+                        <Fragment>
+                            <ul>
+                                {profiles.map(profile => (
+                                    <Pane key={profile._id} profile={profile} 
+                                        marginTop={20}
+                                        marginX={10} 
+                                        elevation={2}
+                                        hoverElevation={3}
+                                        borderRadius={30}
+                                        display="flex"
+                                        flexDirection="column"                                               
+                                        width={200}
+                                        padding={20}
+                                    >
+                                    
+                                        <Avatar
+                                            marginLeft="auto"
+                                            marginRight="auto"
+                                            isSolid
+                                            size={100}
+                                            marginBottom={20}
+                                            name={profile.username}                                                    
+                                            alt={profile.username}
+                                            src={profile.avatar}
+                                        />
+                                        
+                                        <div className='cursor'>
+                                            <Link href={`/${profile.username}`} textDecoration="none">
+                                                <Heading size={800}>{profile.username}</Heading>
+                                            </Link>
+                                        </div>
+
+                                        <Pane
+                                            alignItems="center"
+                                            justifyContent="center"
+                                            flexDirection="row"
+                                            display="flex"
+                                            textAlign="center"
+                                            marginTop={20}
+                                        >
+                                            <Pane 
+                                                alignItems="center"
+                                                justifyContent="center"
+                                                flexDirection="column"
+                                                display="flex"
+                                                textAlign="center"
+                                                padding={10}
+                                            >
+                                                <Heading size={500}>Uploads</Heading>
+                                                <Heading size={400}>{profile.files.length}</Heading>                                                        
+
+                                            </Pane>                                                   
+                                        </Pane>                            
+                                        <NextLink href={`/${profile.username}`}>
+                                            <button className="follow-button">View Profile</button>  
+                                        </NextLink>
+                                    </Pane>
+                                ))}                   
+                            </ul> 
+                        </Fragment>
+                        :
+                        <Fragment>
+                            
+                        </Fragment>
+                        }
+
+                        </Pane>
+
+                        <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Recent Uploads</Heading>
+
+                        <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
+                        <Pane
+                        alignItems="center"
+                        flexDirection="column"
+                        display="flex"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingTop={20}
+                        paddingBottom={40}
+                        paddingRight={20}
+                        paddingLeft={20}   
+                        >                              
+
+                        <ul className='FileNames'>
+                        {recentUploads.map(userfile => (
+                            <Pane key={userfile._id} userfile={userfile}
+                                
+                                display="flex"
+                                justifyContent="center"
+                                flexDirection="column"
+                            >
+                                <NextLink href={{ pathname: '[id]/[file_id]', query: { id: userfile.username, file: userfile._id }}} as={`${userfile.username}/${userfile._id}`}>
+                                <Pane>
+                                    <div className="userfiles_container">                                        
+                                        <img className="userfiles" src={StorageLocation + userfile.filename}  /> 
+                                        <a className="userfiles_overlay">{userfile.comments.length} <FontAwesomeIcon icon={faComment} /> {userfile.likes.length} <FontAwesomeIcon icon={faHeart} /></a>
+                                    </div>                                                                    
+                                </Pane>   
+                                </NextLink>
+
+                            </Pane>
+                        ))}                    
+                        </ul>       
+
+
+                        </Pane>
+                    </Pane>
+                
+                    <Footer ua={ua}/>
+
                 </UserAgent>
             </UserAgentProvider>
         )

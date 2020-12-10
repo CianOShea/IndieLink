@@ -1,7 +1,7 @@
 /* This file is part of IndieLink. IndieLink is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. IndieLink is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with IndieLink.  If not, see <https://www.gnu.org/licenses/>.*/
 
 import React, { Component, useState, useEffect } from 'react'
-import { Pane, Text, Button, toaster } from 'evergreen-ui'
+import { Pane, Text, Heading, toaster, Dialog } from 'evergreen-ui'
 import axios from 'axios'
 import Router from 'next/router'
 import Cookie from 'js-cookie'
@@ -15,7 +15,8 @@ export default class login extends Component {
 
         this.state = {
             email: '',
-            password: ''
+            password: '',
+            isShown: false
         }
     }
 
@@ -46,8 +47,8 @@ export default class login extends Component {
             setAuthToken(Cookie.get('token'));
             const response = await axios.get('/api/auth');
             //console.log(response.data);
-            Router.push( '/[id]', '/5d8143b33fb1e64eb8f28149');
-            //Router.push('/test');
+            const route = '/' + response.data.username
+            Router.push(route);
           }          
             
         } catch (error) {
@@ -57,7 +58,7 @@ export default class login extends Component {
     }    
 
     render() {
-        const { email, password } = this.state
+        const { email, password, isShown } = this.state
 
         return (
             <div>                
@@ -78,9 +79,9 @@ export default class login extends Component {
                                     Login
                                 </span>
 
-                                <div className="wrap-input100 validate-input m-b-23" data-validate = "Username is required">
-                                    <span className="label-input100">Username</span>
-                                    <input className="input100"  type='email' placeholder='Email Address' name='email' value={email} onChange={e => this.onChange(e)}/>
+                                <div className="wrap-input100 validate-input m-b-23" data-validate = "Email is required">
+                                    <span className="label-input100">Email</span>
+                                    <input className="input100"  type='text' placeholder='Email Address' name='email' value={email} onChange={e => this.onChange(e)}/>
                                     <span className="focus-input100" data-symbol="&#xf206;"></span>
                                 </div>
 
@@ -90,8 +91,8 @@ export default class login extends Component {
                                     <span className="focus-input100" data-symbol="&#xf190;"></span>
                                 </div>
                                 
-                                <div className="text-right p-t-8 p-b-31">
-                                    <a href="/reset">
+                                <div className="text-right p-t-8 p-b-31 hov-pointer">
+                                    <a onClick={() => this.setState({ isShown: true })}>
                                         Forgot password?
                                     </a>
                                 </div>
@@ -104,6 +105,16 @@ export default class login extends Component {
                                         </button>
                                     </div>
                                 </div>
+
+                                <Dialog
+                                    isShown={isShown}
+                                    onCloseComplete={() => this.setState({ isShown: false })}
+                                    hasFooter={false}
+                                    hasHeader={false}
+                                >
+                                    <Heading textAlign='center' size={700} marginTop="default" marginBottom={50}>This feature is not available yet.</Heading>
+                                    <Heading textAlign='center' size={700} marginTop="default" marginBottom={50}>Email cian@indielink.io for help.</Heading> 
+                                </Dialog>
 
                                 {/* <div className="txt1 text-center p-t-54 p-b-20">
                                     <span>
@@ -133,7 +144,7 @@ export default class login extends Component {
                                         textDecoration="none"
                                         href={`/signup`}
                                     >
-                                        <a>Create one here.</a>                                    
+                                    Create one here.
                                     </Link>
                                 </Pane>
                             </form>                            

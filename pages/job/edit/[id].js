@@ -7,6 +7,8 @@ import axios from 'axios'
 import Link from 'next/link'
 import { withAuth } from '../../../components/withAuth'
 import Router from 'next/router'
+import MarkdownEditor from '../../../components/create-study/markdown-editor'
+import Markdown from '../../../components/markdown'
 
 import getConfig from 'next/config'
 const { publicRuntimeConfig } = getConfig()
@@ -14,13 +16,42 @@ const { publicRuntimeConfig } = getConfig()
 
 class editjob extends Component {
 
-    static async getInitialProps ( {query: { jobid }}, user) {
+    static async getInitialProps ( query, user) {
 
-        const getJob = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/jobs/${jobid}`);        
+        const token = axios.defaults.headers.common['x-auth-token']
+
+        const jobID = query.query.id
+
+        const getJob = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/jobs/${jobID}`);        
         const currentjob = getJob.data
 
+        var newbm = {}
 
-        return { jobid, user, currentjob }
+        const newBlobMap = Object.assign({}, newbm)
+        currentjob.files.forEach(file => {
+          newBlobMap[file.name] = 'https://indielink-uploads.s3-eu-west-1.amazonaws.com/' + file.s3path
+        }) 
+
+        if (user) {
+            if(currentjob.user.toString() == user._id)
+            {
+                var isOwner = true
+            } else {
+                var isOwner = false
+            }      
+        } 
+
+        if (!user || !isOwner) {
+            if (query.res) {
+                query.res.writeHead(301, {
+                  Location: '/'
+                });
+                query.res.end();
+              }            
+              return {};
+        } else {
+            return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, token, user, currentjob, newBlobMap }
+        }
       
     };
 
@@ -28,14 +59,19 @@ class editjob extends Component {
         super(props)
 
         this.state = {
+            token: this.props.token,
+            ua: this.props.ua,
             user: this.props.user,
             currentjob: this.props.currentjob,
-            company: this.props.currentjob.company,    
+            company: this.props.currentjob.company,   
+            jobtype: this.props.currentjob.jobtype,
             jobtitle: this.props.currentjob.jobtitle,
             location: this.props.currentjob.location,
             remote: false,
             description: this.props.currentjob.description,
-            applicants: '',
+            urlMap: this.props.newBlobMap,
+            files: [],
+            logo: this.props.currentjob.logo,
             selectedOption: this.props.currentjob.jobtitle,
             other: ''
         }
@@ -47,52 +83,170 @@ class editjob extends Component {
     }
 
 
-    async createJob (e) {
+    async editJob (e) {
         e.preventDefault()
-        const { company, jobtitle, location, description, currentjob } = this.state
+        const { jobtype, company, jobtitle, location, description, currentjob, files, newlogo } = this.state
 
-        try {
-            const config = {
+        if (jobtype == "" || location == "" || company == "" || jobtitle == "" || description == "") {
+            toaster.warning('Please make sure all fields are filled')
+            return
+        }
+
+        if (newlogo) {
+            var data = new FormData();
+            data.append('newfileupload', newlogo);
+
+            const response = await axios.post( '/api/uploadFile/upload', data, {
                 headers: {
-                'Content-Type': 'application/json'
+                    'accept': 'application/json',
+                    'Accept-Language': 'en-US,en;q=0.8',
+                    'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
                 }
-            };
-            const formData = {
-                company,
-                jobtitle,
-                location,
-                description      
-            };
-
-            console.log(formData)
-
-            const res = await axios.put(`/api/jobs/edit/${currentjob._id}`, formData, config);
-            console.log(res)
-
-            if (res) {
-                if ( 200 === res.status ) {
-                    Router.push('/jobs');
+            })
+            if (response) {
+                if ( 200 === response.status ) {
+                    var newlogoS3 = 'https://indielink-uploads.s3-eu-west-1.amazonaws.com/' + response.data.image[0]
                 }
             }
+        } else {
+            var newlogoS3 = ''
+        }
 
-        } catch (error) {
-            console.error(error)
+        var data = new FormData();
+        for (const file of files){
+            data.append('newfileupload', file);                
+        }           
+                
+        const response = await axios.post( '/api/uploadFile/upload', data, {
+            headers: {
+                'accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.8',
+                'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
+            }
+        })
+        // console.log(response)
+        // console.log(response.data.image[0])
+
+        for (var i=0; i<files.length; i++) {          
+            this.state.files[i].s3path = response.data.image[i]
+            this.state.files[i].originalname = response.data.originalname[i]
+
+        }
+        // console.log(files)
+
+        if (response) {
+            if ( 200 === response.status ) {
+
+                try {
+                    const config = {
+                        headers: {
+                        'Content-Type': 'application/json',
+                        'x-auth-token': this.props.token
+                        }
+                    };
+
+                    const formData = {
+                        company,
+                        jobtitle,
+                        location,
+                        description,
+                        files,
+                        newlogoS3  
+                    };     
+
+                    // console.log(formData)
+
+                    const res = await axios.put(`/api/jobs/edit/${currentjob._id}`, formData, config);
+                    // console.log(res)
+
+                    toaster.success('Edit successful')
+
+                    Router.push(`/job/${currentjob._id}`);
+
+                } catch (error) {
+                    console.error(error)
+                }
+            }
         }
 
     }
 
+    async newLogo(e) {
+        e.preventDefault()        
+
+        let file = e.target.files[e.target.files.length - 1]  
+        
+        if ( file != undefined) {
+
+            let newBlobMap = {}
+            let urlMap = {}
+            
+            newBlobMap = Object.assign({}, urlMap)        
+            newBlobMap[file.name] = window.URL.createObjectURL(file)              
+            
+            const newlogoname = newBlobMap[Object.keys(newBlobMap)[0]]        
+        
+            this.setState({                 
+                logo: newlogoname,
+                newlogo: file               
+            })
+        }
+        
+    }
+
+    async setFiles(newFiles) {
+        const { files, previewImage, urlMap } = this.state
+        // console.log(newFiles)
+
+        if (newFiles[0].size <= 20000000) {
+
+            this.setState({ files: newFiles })   
+    
+            if (!previewImage) {
+            const preview = files.concat(newFiles).find(f =>
+                f.name.toLowerCase().endsWith('.png') ||
+                f.name.toLowerCase().endsWith('.jpg') ||
+                f.name.toLowerCase().endsWith('.jpeg') ||
+                f.name.toLowerCase().endsWith('.git') ||
+                f.name.toLowerCase().endsWith('.svg')
+            )
+        
+            if (preview) {
+                preview.url = window.URL.createObjectURL(preview)
+                this.setState({ previewImage: preview })
+            }
+            }
+        
+            const newBlobMap = Object.assign({}, urlMap)
+            newFiles.forEach(file => {
+            newBlobMap[file.name] = window.URL.createObjectURL(file)
+            })
+        
+            this.setState({ urlMap: newBlobMap })
+
+        } else {
+            toaster.warning("File size is too large. Maximum file size is 20MB");
+        }
+    }
+ 
+
+    setText(newText) {        
+        this.setState({ description: newText})        
+    }
+
     render() {
-        const { user } = this.props
-        const { company, jobtype, jobtitle, description, members, pending, selectedOption, other, location, remote } = this.state
+        const { user, ua, currentjob } = this.props
+        const { company, jobtype, jobtitle, description, selectedOption, other, location, remote, urlMap, files, logo } = this.state
+        
 
         return (
             <div>
-                <Pane height='80px'>
-                    <NewNav user={user}/>
+                <Pane>
+                    <NewNav user={user} ua={ua}/>
                 </Pane>
 
                 <Pane
-                    width='100vh'
+                    maxWidth='100vh'
                     elevation={2}
                     alignItems="center"
                     justifyContent="center"
@@ -162,17 +316,58 @@ class editjob extends Component {
                         
                         <Pane marginBottom={20}>
                             <Heading size={500} marginBottom={10}>Job Description</Heading> 
-                            <Textarea
-                                placeholder='Describe the role...'
-                                name='description'
-                                value={description}
-                                onChange={e => this.onChange(e)}
-                                height={200}
-                            />
+                            <Pane marginTop={16} textAlign="left">
+                                <MarkdownEditor
+                                    setText={(newText) => this.setText(newText)}
+                                    setFiles={(newFiles) => this.setFiles(newFiles)}
+                                    placeholder='Job Description'
+                                    uploadsAllowed={true}
+                                    allowPreview={true}
+                                    prependFilesToPreview
+                                    urlMap={urlMap}
+                                    name='description'
+                                    text={description}
+                                    files={files}
+                                    height={500}
+                                />
+                            </Pane>  
                         </Pane>
 
-                        <Button marginRight={10} width={150} height={40} justifyContent='center'  onClick={(e) => this.createJob(e)} type="submit" appearance="primary">Edit Job</Button>
-                        <Button width={150} height={40} justifyContent='center'  onClick={() => Router.push('/jobs')} type="submit" appearance="primary" intent="danger">Cancel</Button>
+                        <Pane marginBottom={20}>
+                            <Heading size={500} marginTop="default" marginBottom={20}>Add Logo</Heading>  
+                            <Pane
+                                border
+                                borderStyle="dashed"
+                                borderRadius={3}
+                                cursor="pointer"
+                                minHeight={200}
+                            >
+                                <Pane
+                                    marginX="auto"
+                                    marginTop={20}
+                                    width={260}
+                                    height={50}
+                                    textAlign='center'
+                                >
+                                    <Avatar
+                                        marginLeft="auto"
+                                        marginRight="auto"
+                                        isSolid
+                                        size={120}
+                                        marginBottom={10}
+                                        name={logo ? logo : "IndieLink"}
+                                        alt={logo ? logo : "IndieLink"}
+                                        src={logo}
+                                    />
+                                    <input type="file" id="image" name="file" accept="image/*" onChange={(e) => this.newLogo(e)}></input>                                           
+                                </Pane>  
+                            </Pane>
+                        </Pane>
+
+                        <Button marginRight={10} width={150} height={40} justifyContent='center'  onClick={(e) => this.editJob(e)} type="submit" appearance="primary">Edit Job</Button>
+                        <Link href={{ pathname: '/job/[id]', query: { jobID: currentjob._id } } } as={`/job/${currentjob._id}`}>
+                            <Button appearance="minimal" intent="danger">Cancel</Button>
+                        </Link>
 
                     </Pane>                    
                 </Pane>          

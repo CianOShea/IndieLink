@@ -1,7 +1,5 @@
-/* This file is part of IndieLink. IndieLink is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. IndieLink is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with IndieLink.  If not, see <https://www.gnu.org/licenses/>.*/
-
 import React, { Fragment } from 'react';
-import { Pane, Avatar, Button, Link, IconButton, Textarea  } from 'evergreen-ui'
+import { Pane, Avatar, Button, Link, IconButton, Textarea, toaster  } from 'evergreen-ui'
 import axios from 'axios'
 
 class TreeComponent extends React.Component {
@@ -22,21 +20,21 @@ class TreeComponent extends React.Component {
   async replyComment (e) {  
     e.preventDefault();
 
-    console.log(this.props.node)
 
     const { userreply } = this.state   
 
     const config = {
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-auth-token': this.props.token
         }
       };
-    const body = JSON.stringify({ comment: userreply, parentID: this.props.node._id, postID: this.props.node.postID});
+    const body = JSON.stringify({ comment: userreply, parentID: this.props.node._id, postID: this.props.node.postID, pageprofileID: this.props.pageprofileID});
     
     try {
         
         const res = await axios.put(`/api/profile/files/comments/${this.props.node.postID}`, body, config); 
-        console.log(res)
+        
 
         this.setState({
           userreply: '',
@@ -56,13 +54,13 @@ class TreeComponent extends React.Component {
     let childNodes;
     if (this.props.node.children && this.props.node.children.length > 0) {
       childNodes = this.props.node.children.map((node, index) => {
-        return <li key={index}><TreeComponent onAddComment={this.props.onAddComment} loggedinuser={this.props.loggedinuser} node={node} /></li>
+        return <li key={index}><TreeComponent onAddComment={this.props.onAddComment} loggedinuser={this.props.loggedinuser} node={node} token={this.props.token} pageprofileID={this.props.pageprofileID}/></li>
       });
     }
 
     const { replyOpen, userreply } = this.state
+    
 
-    console.log(this.props.loggedinuser)
     return (
       
       <div>
@@ -74,16 +72,25 @@ class TreeComponent extends React.Component {
                 <Avatar
                   isSolid
                   size={30}
-                  alt={this.props.node.name}
+                  alt={this.props.node.username}
                   src={this.props.node.avatar ? `${this.props.node.avatar}?width=40&height=40?alt="avatar"` : null}
-                  name={this.props.node.name}
+                  name={this.props.node.username}
                 />
-                <Link paddingBottom={10} marginLeft={10} size={500} href={`/${this.props.node.user}`} aria-label={`/${this.props.node.name}`}>
-                  {this.props.node.name}
+                <Link paddingBottom={10} marginLeft={10} size={500} href={`/${this.props.node.username}`} aria-label={`/${this.props.node.username}`}>
+                  {this.props.node.username}
                 </Link>
                   <p>{this.props.node.text}</p>
-                  <Button onClick={() => (this.setState({ replyOpen: true }))} appearance="minimal">Reply</Button>
-                  {/* <IconButton icon="heart" appearance="minimal"/> */}
+                  {
+                    this.props.loggedinuser ?
+                    <Fragment>
+                      <Button onClick={() => (this.setState({ replyOpen: true }))} appearance="minimal">Reply</Button>
+                    </Fragment>
+                    :
+                    <Fragment>
+
+                    </Fragment>
+                  }
+                  
               </ul>
               <ul>          
                 {childNodes}
@@ -97,12 +104,12 @@ class TreeComponent extends React.Component {
                 <Avatar
                   isSolid
                   size={30}
-                  alt={this.props.node.name}
+                  alt={this.props.node.username}
                   src={this.props.node.avatar ? `${this.props.node.avatar}?width=40&height=40?alt="avatar"` : null}
-                  name={this.props.node.name}
+                  name={this.props.node.username}
                 />
-                <Link marginLeft={10} size={500} href={`/${this.props.node.user}`} aria-label={`/${this.props.node.name}`}>
-                  {this.props.node.name}
+                <Link marginLeft={10} size={500} href={`/${this.props.node.username}`} aria-label={`/${this.props.node.username}`}>
+                  {this.props.node.username}
                 </Link>
                   <p>{this.props.node.text}</p>
                   {/* <IconButton icon="heart" appearance="minimal"/> */}

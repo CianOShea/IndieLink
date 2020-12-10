@@ -3,15 +3,13 @@
 import React, { Component, Fragment } from 'react'
 import axios from 'axios'
 import Link from 'next/link'
-import Dropzone from 'react-dropzone'
-import { TextInput, Icon, Pane, Text, Textarea, Button, Heading, Avatar } from 'evergreen-ui'
+import { Dialog, Icon, Pane, Text, Textarea, Button, Heading, Avatar } from 'evergreen-ui'
 import { withAuth } from '../../components/withAuth'
 import NewNav from '../../components/NewNav'
-import MarkdownToolbar from '../../components/create-study/markdown-toolbar'
-import MarkdownEditor from '../../components/create-study/markdown-editor'
-import PropTypes from 'prop-types'
-import FilesForm from '../../components/create-study/files-form'
-import Markdown from '../../components/markdown'
+import moment from 'moment'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faComment, faHeart } from '@fortawesome/free-solid-svg-icons'
+import {UserAgentProvider, UserAgent} from '@quentin-sommer/react-useragent'
 
 import getConfig from 'next/config'
 const { publicRuntimeConfig } = getConfig()
@@ -19,148 +17,313 @@ const { publicRuntimeConfig } = getConfig()
 
 class dashboard extends Component {
 
-    static async getInitialProps (ctx, user) {        
-
-        // const getMarkdownbyID = await axios.get( `${publicRuntimeConfig.SERVER_URL}/api/markdown/5f2982e13ade8a1bd88d52d1`)
-                    
-        // const markdown = getMarkdownbyID.data
-        //console.log(markdown)
-
-        const getMarkdown = await axios.get( `${publicRuntimeConfig.SERVER_URL}/api/markdown`)
-                    
-        const markdowns = getMarkdown.data
-
-        
-        const res = ctx.res     
+    static async getInitialProps (query, user ) {   
+  
         if (!user) {
             user = null
-        }           
+        }          
 
-        return { user, markdowns }
+        const getMarkdown = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/markdown`)                    
+        const markdowns = getMarkdown.data
+
+        return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, user, markdowns }
            
     };
 
     constructor(props) {
         super(props)
         this.state = {
-          user: this.props.user,
-          text: '',
-          link: '',
-          files: [],
-          previewImage: null,
-          urlMap: {},
-          isBusy: false,
+          user: this.props.user,   
+          markdowns: this.props.markdowns,       
+          isShown: false
         }
     }
-
-    async deleteMarkdown(markdown){
-        console.log(markdown)
-    }
-
 
 
     render() {
 
-        const { user, markdowns } = this.props
-        const { text, urlMap, files, isBusy } = this.state
-
-        //console.log(urlMap)
-
-        //console.log(text)
-
-        //console.log(this.props.newbm)
-
-        //console.log(this.props.markdowns)
-        //console.log(this.props.newBlobMap)
-
+        const { user, ua, markdowns } = this.props
+        const { isShown } = this.state   
 
         return (
-            <div>
-                <Pane height='60px'>
-                    <NewNav user={user}/>
-                </Pane>
-                <div className='layout'>
-                    <div className='teams'>  
-                        <Pane
-                            justifyContent="center"
-                            marginLeft="auto"
-                            marginRight="auto"
-                            paddingTop={20}
-                            paddingRight={10}
-                            paddingLeft={10}
-                            textAlign="center"
-                            marginBottom={50}
-                        >   
-                            <Heading size={900} fontWeight={500} marginTop={20} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
-                                Community
-                            </Heading>
-                            <Link href={'/community/create'}>
-                                <a>
-                                    <Button height={40} textAlign="center"  type="submit" appearance="primary" intent="warning">Create Post</Button>
-                                </a>
-                            </Link> 
-                        </Pane>
+            <UserAgentProvider ua={ua}>
+                <UserAgent computer tablet>
 
-                        <Pane 
-                            marginTop={50}
-                            marginLeft={100}
-                            marginRight={100}
+                    <Pane>
+                        <NewNav user={user} ua={ua}/>
+                    </Pane> 
+                    <Pane
+                        justifyContent="center"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingTop={20}
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={50}
+                        width="80%"
+                    >   
+                        <Heading size={900} fontWeight={500} marginTop={20} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                            Community
+                        </Heading>
+
+                        {
+                            user ?
+                            <Fragment>
+                                <Link href={'/community/create'}>
+                                    <Button height={40} textAlign="center"  type="submit" appearance="primary" intent="warning">Create a Post +</Button>
+                                </Link> 
+                            </Fragment>
+                            :
+                            <Fragment> 
+                                <Button onClick={() => this.setState({ isShown: true })} height={40} textAlign="center"  type="submit" appearance="primary" intent="warning">Create Post +</Button>                                                
+                            </Fragment>
+                        }
+
+                        <Dialog
+                            isShown={isShown}
+                            onCloseComplete={() => this.setState({ isShown: false })}
+                            hasFooter={false}
+                            hasHeader={false}
                         >
-                            <ul>
-                                {markdowns.map(markdown => (
-                                    <Pane key={markdown._id} markdown={markdown} 
-                                        display="flex"
-                                        padding={16}
-                                        background="tint2"
-                                        borderRadius={3}
-                                        marginBottom={10}
-                                        elevation={1}
-                                    >
-                                        <Pane flex={1} alignItems="center" display="flex">
-                                            <div className='username'>
-                                                <Link href={{ pathname: `/community/[id]`, query: { markdownID: markdown._id }}} as={`/community/${markdown._id}`} >
-                                                    <a>
-                                                        <Heading size={700} fontWeight={500} textDecoration="none" textAlign="center">
-                                                            {markdown.title}
-                                                        </Heading>
-                                                    </a>
-                                                </Link>   
-                                            </div>                                       
-                                        </Pane>
+                            <Heading textAlign='center' size={700} marginTop="default" marginBottom={50}>Please log in to create an article.</Heading>                                
+                        </Dialog> 
 
-                                        <Pane marginRight={10}>
-                                            <div className='username'>
-                                                <Pane float='left' paddingRight={10}>
-                                                    <Link href={`/${markdown.user}`} as={`/${markdown.user}`}>
-                                                        <a>
+                    </Pane>
+
+                    <Pane 
+                        alignItems="center"
+                        justifyContent="center"
+                        flexDirection="row"
+                        display="flex"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={100}
+                    >                            
+                    {
+                        markdowns != null ?
+                        <Fragment>
+                        {
+                            markdowns.length > 0 ?
+                            <Fragment>
+                                <ul>
+                                    {markdowns.map(markdown => (
+                                        <Pane key={markdown._id} markdown={markdown}
+                                            display="flex"
+                                            padding={16}
+                                            borderRadius={30}
+                                            marginBottom={10}
+                                            elevation={1}
+                                            hoverElevation={3}
+                                            width={800}
+                                        >
+                                            <Pane flex={3} alignItems="center" display="flex">
+                                                <div className='username'>
+                                                    <Link href={{ pathname: `/community/[id]`, query: { markdownID: markdown._id }}} as={`/community/${markdown._id}`} >
+                                                    <div className="article-title"> 
+                                                            <Pane padding={10}>
+                                                                <Heading size={700} fontWeight={500} textDecoration="none" textAlign="left">
+                                                                    {markdown.title}                                                            
+                                                                </Heading>
+                                                            </Pane>  
+                                                        </div>
+                                                    </Link>   
+                                                </div>                                       
+                                            </Pane>
+
+                                            <Pane flex={1} alignItems="center" textAlign="center" justifyContent="center" display="flex">
+                                                <div>                                        
+                                                    <a>{markdown.comments.length} <FontAwesomeIcon icon={faComment} /> {markdown.likes.length} <FontAwesomeIcon icon={faHeart} /></a>
+                                                </div>                                                                            
+                                            </Pane> 
+
+                                            <Pane>
+                                                
+                                                <Pane float='left'>
+                                                    <Link href={`/${markdown.username}`} as={`/${markdown.username}`}>
+                                                        <div className='username'>
                                                             <Avatar
                                                                 isSolid
                                                                 size={40}
-                                                                name={markdown.name}
+                                                                name={markdown.username}
                                                                 src={markdown.avatar}
                                                             />
-                                                        </a>
+                                                        </div> 
                                                     </Link>
                                                 </Pane>
                                             
                                                 <Pane float='left' paddingTop={5}>                                                
-                                                    <Link href={`/${markdown.user}`} as={`/${markdown.user}`} >
-                                                        <a>
+                                                    <Link href={`/${markdown.username}`} as={`/${markdown.username}`}>
+                                                        <div className='username'>
                                                             <Heading size={600} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                                 
-                                                            {markdown.name}                                            
+                                                            {markdown.username}                                            
                                                             </Heading>
-                                                        </a>
+                                                        </div> 
+                                                    </Link>
+                                                    {moment(markdown.date, 'YYYY-MM-DDTHH:mm:ss.sssZ').fromNow()}
+                                                    
+                                                </Pane>                               
+                                            </Pane>
+                                        </Pane>
+                                    ))}                   
+                                </ul>                                            
+                            </Fragment>
+                            :
+                            <Fragment>
+                                Oh no, there are no articles to read. YOU should create one!
+                            </Fragment>
+                        }
+                        </Fragment>
+                        :
+                        <Fragment>
+                            Oh no, there are no articles to read. YOU should create one!
+                        </Fragment>
+                        
+                    }
+                    </Pane> 
+                </UserAgent>
+
+                <UserAgent mobile>
+                    <Pane>
+                        <NewNav user={user} ua={ua}/>
+                    </Pane> 
+                    <Pane
+                        justifyContent="center"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingTop={20}
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={50}
+                        width="80%"
+                    >   
+                        <Heading size={900} fontWeight={500} marginTop={20} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                            Community
+                        </Heading>
+
+                        {
+                            user ?
+                            <Fragment>
+                                <Link href={'/community/create'}>
+                                    <Button height={40} textAlign="center"  type="submit" appearance="primary" intent="warning">Create a Post +</Button>
+                                </Link> 
+                            </Fragment>
+                            :
+                            <Fragment> 
+                                <Button onClick={() => this.setState({ isShown: true })} height={40} textAlign="center"  type="submit" appearance="primary" intent="warning">Create Post +</Button>                                                
+                            </Fragment>
+                        }
+
+                        <Dialog
+                            isShown={isShown}
+                            onCloseComplete={() => this.setState({ isShown: false })}
+                            hasFooter={false}
+                            hasHeader={false}
+                        >
+                            <Heading textAlign='center' size={700} marginTop="default" marginBottom={50}>Please log in to create an article.</Heading>                                
+                        </Dialog> 
+
+                    </Pane>
+
+                    <Pane 
+                        alignItems="center"
+                        justifyContent="center"
+                        flexDirection="row"
+                        display="flex"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={100}
+                    >                            
+                    {
+                        markdowns != null ?
+                        <Fragment>
+                        {
+                            markdowns.length > 0 ?
+                            <Fragment>
+                                <ul>
+                                    {markdowns.map(markdown => (
+                                        <Pane key={markdown._id} markdown={markdown}
+                                            display="flex"
+                                            padding={16}
+                                            borderRadius={30}
+                                            marginBottom={10}
+                                            elevation={1}
+                                            hoverElevation={3}
+                                            width={400}
+                                        >
+                                            <Pane flex={1} alignItems="center" display="flex">
+                                                <div className='username'>
+                                                    <Link href={{ pathname: `/community/[id]`, query: { markdownID: markdown._id }}} as={`/community/${markdown._id}`} >
+                                                        <div className="article-title"> 
+                                                            <Pane width={100}>
+                                                                <Heading size={700} fontWeight={500} textDecoration="none" textAlign="center">
+                                                                    {markdown.title}                                                            
+                                                                </Heading>
+                                                            </Pane>  
+                                                        </div>
+                                                    </Link>   
+                                                </div>                                       
+                                            </Pane>
+
+                                            <Pane flex={2} alignItems="center" textAlign="center" justifyContent="center" display="flex">
+                                                <div>                                        
+                                                    <a>{markdown.comments.length} <FontAwesomeIcon icon={faComment} /> {markdown.likes.length} <FontAwesomeIcon icon={faHeart} /></a>
+                                                </div>                                                                            
+                                            </Pane> 
+
+                                            <Pane>
+                                                
+                                                <Pane float='left'>
+                                                    <Link href={`/${markdown.username}`} as={`/${markdown.username}`}>
+                                                        <div className='username'>
+                                                            <Avatar
+                                                                isSolid
+                                                                size={40}
+                                                                name={markdown.username}
+                                                                src={markdown.avatar}
+                                                            />
+                                                        </div> 
                                                     </Link>
                                                 </Pane>
-                                            </div>                                  
+                                            
+                                                <Pane float='left' paddingTop={5}>                                                
+                                                    <Link href={`/${markdown.username}`} as={`/${markdown.username}`}>
+                                                        <div className='username'>
+                                                            <Heading size={600} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                                 
+                                                            {markdown.username}                                            
+                                                            </Heading>
+                                                        </div> 
+                                                    </Link>
+                                                    {moment(markdown.date, 'YYYY-MM-DDTHH:mm:ss.sssZ').fromNow()}
+                                                    
+                                                </Pane>                               
+                                            </Pane>
                                         </Pane>
-                                    </Pane>
-                                ))}                   
-                            </ul>
-                        </Pane> 
-                    </div>
-                </div>
-            </div>
+                                    ))}                   
+                                </ul>                                            
+                            </Fragment>
+                            :
+                            <Fragment>
+                                Oh no, there are no articles to read. YOU should create one!
+                            </Fragment>
+                        }
+                        </Fragment>
+                        :
+                        <Fragment>
+                            Oh no, there are no articles to read. YOU should create one!
+                        </Fragment>
+                        
+                    }
+                    </Pane> 
+                </UserAgent>
+            </UserAgentProvider>
             
         )
     }

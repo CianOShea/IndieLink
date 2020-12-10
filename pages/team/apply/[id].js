@@ -6,7 +6,7 @@ import { Textarea, TextInput, Text, Button, toaster, Pane, Heading, Tab, Avatar 
 import { withAuth } from '../../../components/withAuth'
 import axios from 'axios'
 import Select from 'react-select'
-import Dropzone from 'react-dropzone'
+import MarkdownEditor from '../../../components/create-study/markdown-editor'
 import Router from 'next/router'
 
 import getConfig from 'next/config'
@@ -16,18 +16,30 @@ const colourStyles = {control: styles => ({ ...styles, backgroundColor: 'white',
 
 class teamapply extends Component {
 
-    static async getInitialProps ( {query: { teamid }}, user) {
+    static async getInitialProps ( query, user) {
+
+        const token = axios.defaults.headers.common['x-auth-token']
+        const teamid = query.query.id
 
         const getTeam = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/team/${teamid}`);        
         const currentteam = getTeam.data
 
         let options = []
         currentteam.openRoles.map(role => {
-            options.unshift({ value: role.title, label: role.title })
-        })
-        //console.log(options)
+            options.unshift({ value: role.title, label: role.title, id: role._id })
+        }) 
 
-        return { teamid, user, currentteam, options }
+        if (!user) {
+            if (query.res) {
+                query.res.writeHead(301, {
+                  Location: '/'
+                });
+                query.res.end();
+              }            
+              return {};
+        } else {
+            return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, token, teamid, user, currentteam, options }
+        }
       
     };
 
@@ -35,11 +47,15 @@ class teamapply extends Component {
         super(props)
 
         this.state = {
+            token: this.props.token,
+            ua: this.props.ua,
             currentteam: this.props.currentteam,
             options: this.props.options,
             selectedOption: '',
-            applydescription: '',
-            cv: ''
+            description: '',
+            text: '',
+            urlMap: {},
+            files: [],
         }
     };
 
@@ -55,118 +71,150 @@ class teamapply extends Component {
       };
 
 
-    async handleFile(e) {
-        e.preventDefault()        
-
-        let file = e.target.files[0]
-        console.log(file)
-
-        if (file.type != "application/pdf") {
-            alert('File type must be PDF')
-        } else {
-            this.setState({ cv: file })
-        }
-    }
-
     async apply(e) {
-        e.preventDefault()        
-        console.log('Apply')
+        e.preventDefault()    
         const { user } = this.props
-        const { currentteam, selectedOption, applydescription, cv } = this.state        
+        const { currentteam, selectedOption, description, files } = this.state    
+        // console.log(selectedOption)
+        if (selectedOption == ""){
+            toaster.warning('Please select which role you would like to apply to.')
+            return
+        }
+
+        if (description == "") {
+            toaster.warning("Please provide your reason for applying")
+            return
+        }
+        
 
         try {  
 
-            if (cv != null) {
-                // Upload CV
-                // Add upload name location to uploadcv
-    
-                var data = new FormData();
-    
-                data.append('newfileupload', cv);                    
+            var data = new FormData();
+            for (const file of files){
+                data.append('newfileupload', file);                
+            }           
                     
-                const response = await axios.post( '/api/uploadFile/upload', data, {
-                    headers: {
-                        'accept': 'application/json',
-                        'Accept-Language': 'en-US,en;q=0.8',
-                        'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
-                    }
-                })
-                console.log(response)
-                console.log(response.data.image[0])
+            const response = await axios.post( '/api/uploadFile/upload', data, {
+                headers: {
+                    'accept': 'application/json',
+                    'Accept-Language': 'en-US,en;q=0.8',
+                    'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
+                }
+            })
 
-                const uploadcv = response.data.image[0]                
-
-                const config = {
-                    headers: {
-                    'Content-Type': 'application/json'
-                    }
-                };
-
-                const formData = {
-                    user,
-                    selectedOption,
-                    applydescription,
-                    uploadcv              
-                };                
-    
-                console.log(formData)
-    
-                const res = await axios.put(`/api/team/pending/${currentteam._id}`, formData, config);
-                console.log(res)
-                
-            } else {
-
-                const config = {
-                    headers: {
-                    'Content-Type': 'application/json'
-                    }
-                };
-                
-                const formData = {
-                    user,
-                    selectedOption,
-                    applydescription            
-                };                
-    
-                console.log(formData)
-    
-                const res = await axios.put(`/api/team/pending/${currentteam._id}`, formData, config);
-                console.log(res)
+            for (var i=0; i<files.length; i++) {          
+                this.state.files[i].s3path = response.data.image[i]
+                this.state.files[i].originalname = response.data.originalname[i]
             }
-            Router.push('/bbb')     
+
+            const config = {
+                headers: {
+                'Content-Type': 'application/json',
+                'x-auth-token': this.props.token
+                }
+            };
+            
+            const formData = {
+                selectedOption,
+                description,
+                files          
+            };                
+
+            // console.log(formData)
+
+            const res = await axios.put(`/api/team/pending/${currentteam._id}`, formData, config);
+            // console.log(res)
+
+            toaster.success('Applied! Check notifications for updates')
+            
+            Router.push('/teams')     
            
         } catch (error) {
             console.error(error)
-        }           
-
+            toaster.danger(error.response.data.msg)
+        }    
     }
 
+    async setFiles(newFiles) {
+        const { files, previewImage, urlMap } = this.state
+        
+
+        if (newFiles[0].size <= 20000000) {
+
+            this.setState({ files: newFiles })   
+    
+            if (!previewImage) {
+            const preview = files.concat(newFiles).find(f =>
+                f.name.toLowerCase().endsWith('.png') ||
+                f.name.toLowerCase().endsWith('.jpg') ||
+                f.name.toLowerCase().endsWith('.jpeg') ||
+                f.name.toLowerCase().endsWith('.git') ||
+                f.name.toLowerCase().endsWith('.svg')
+            )
+        
+            if (preview) {
+                preview.url = window.URL.createObjectURL(preview)
+                this.setState({ previewImage: preview })
+            }
+            }
+        
+            const newBlobMap = Object.assign({}, urlMap)
+            newFiles.forEach(file => {
+            newBlobMap[file.name] = window.URL.createObjectURL(file)
+            })
+        
+            this.setState({ urlMap: newBlobMap })
+
+        } else {
+            toaster.warning("File size is too large. Maximum file size is 20MB");
+        }
+    }
+ 
+
+    setText(newText) {        
+        this.setState({ description: newText})        
+    }
 
     render() {
 
-        const { user, teamid, currentteam } = this.props
-        const { options, selectedOption, applydescription, cv } = this.state
-
-        //console.log(cv)
+        const { user, ua, teamid, currentteam } = this.props
+        const { options, selectedOption, description, urlMap, files } = this.state
+        
         return (
             <div>
-                <Pane height='60px'>
-                    <NewNav user={user}/>
+                <Pane>
+                    <NewNav user={user} ua={ua}/>
                 </Pane>
-                <div className='teamidlayout'>
-                    <div className='teamid'>
+
+                <Pane
+                    maxWidth='100vh'
+                    elevation={2}
+                    alignItems="center"
+                    justifyContent="center"
+                    flexDirection="row"
+                    display="flex"
+                    marginLeft="auto"
+                    marginRight="auto"
+                    textAlign="center"
+                    paddingLeft={20}
+                    paddingRight={20}
+                    paddingBottom={20}
+                >
+                    <Pane width='100%'>
 
                         <Pane marginTop={20} clearfix display={"flex"} justifyContent="center" alignItems="center">
-                            <ul>
+                        <div className="track" data-glide-el="track">                                    
+                            <ul className="slides">
                                 {currentteam.openRoles.map(role => (
                                     <Pane key={role._id} role={role} 
-                                        marginX={20} marginBottom={20} float="left">
+                                        marginBottom={20} float="left">
+                                        <div className="slide">
                                         <Pane
-                                            elevation={1}
-                                            borderRadius={4}
+                                            border
+                                            borderRadius={30}
                                             display="flex"
-                                            alignItems="left"
-                                            textAlign="left"
+                                            alignItems="center"
+                                            textAlign="center"
                                             flexDirection="column"
                                             height={250}
                                             width={300}
@@ -177,13 +225,15 @@ class teamapply extends Component {
                                             {role.title}
                                             </Heading>
 
-                                            <div className="_3IRACUpJuf5zmxb_ipdgBu">                    
-                                                <p className="_2KKuUlx5EWHCAlRvvNnSWi">{role.description}</p>
+                                            <div className="overflowdiv">                    
+                                                <p className="overflowp">{role.description}</p>
                                             </div>                                              
                                         </Pane>
+                                        </div>
                                     </Pane>
                                 ))}                   
                             </ul>
+                        </div>
                         </Pane>
                         <Pane 
                             alignItems="center"
@@ -193,6 +243,7 @@ class teamapply extends Component {
                             marginLeft="auto"
                             marginRight="auto"
                             textAlign="center"
+                            marginTop={20}
                             paddingLeft={20}
                             paddingRight={20}
                             paddingBottom={20}
@@ -200,30 +251,31 @@ class teamapply extends Component {
                             <Pane marginBottom={20}>                                
                                 <Select value={selectedOption} onChange={this.handleSelected} styles={colourStyles} options={options} />
                             </Pane>
-
-                            <Pane marginBottom={20}>   
-                                <Heading size={500} marginTop="default" marginBottom={10}>Describe why you would be a great fit for this role</Heading>
-                                <Textarea
-                                    placeholder='Maybe add links to previous works or other online portfolios...'
-                                    name='applydescription'
-                                    value={applydescription}
-                                    onChange={e => this.onChange(e)}
-                                    width={500}
-                                    minHeight={200}
-                                />
-                            </Pane>
                             
-
-                            <Pane marginBottom={40} >
-                                <Heading size={700} marginTop="default" marginBottom={10}>Optional: Upload PDF - C.V.</Heading>
-        
-                                <input type="file" id="cv" name="cv" accept="application/pdf" onChange={(e) => this.handleFile(e)}></input>  
-                                              
-                            </Pane>
-                            <Button height={48} onClick={(e) => this.apply(e)} textAlign="center"  type="submit" appearance="primary" intent="warning">Apply</Button>
                         </Pane>
-                    </div>
-                </div>
+                        <Pane marginTop={16} textAlign="left" marginBottom={20}>
+                            <MarkdownEditor
+                                setText={(newText) => this.setText(newText)}
+                                setFiles={(newFiles) => this.setFiles(newFiles)}
+                                placeholder='Maybe add some images of your work or link to it...'
+                                uploadsAllowed={true}
+                                allowPreview={true}
+                                prependFilesToPreview
+                                urlMap={urlMap}
+                                name='description'
+                                text={description}
+                                files={files}
+                                height={300}
+                            />
+                        </Pane>  
+                        <Pane 
+                            marginBottom={40}
+                            textAlign="center" 
+                        >
+                            <Button height={48} onClick={(e) => this.apply(e)} textAlign="center"  type="submit" appearance="primary" intent="success">Apply</Button>
+                        </Pane>  
+                    </Pane>
+                </Pane>
             </div>
         )
     }

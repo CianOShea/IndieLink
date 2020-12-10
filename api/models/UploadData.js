@@ -44,8 +44,9 @@ const UploadDataSchema = new Schema({
         type: String,
         required: true
       },
-      name: {
-        type: String
+      username: {
+        type: String,
+        required: true
       },
       avatar: {
         type: String

@@ -50,7 +50,8 @@ router.post(
       user,
       avatar,
       newavatars3,
-      bio  
+      bio,
+      social
     } = req.body;
 
     // Build profile object
@@ -63,9 +64,26 @@ router.post(
     }
     if (avatar) profileFields.avatar = newavatars3;
     if (bio) profileFields.bio = bio;
+    if (social) {
+      profileFields.social = social.map(function(links) {
+        const sociallinks = {
+          title: links.title,
+          url: links.url,
+          link: links.link
+        }
+        return sociallinks;    
+      })
+    }
 
     try {
       let profile = await Profile.findOne({ user: req.user.id });
+
+      const user = await User.findById(req.user.id).select('-password');
+
+      if (newavatars3 !== '') {      
+        user.avatar = newavatars3
+      }    
+
 
       if (profile) {
         // Update
@@ -81,7 +99,9 @@ router.post(
       // Create
       profile = new Profile(profileFields);
 
+      await user.save();
       await profile.save();
+
       res.json(profile);
     } catch (err) {
       console.error(err.message);
@@ -97,11 +117,8 @@ router.put('/editprofile',[ auth ], async (req, res) => {
   }
 
   const {
-    user,
-    fullname,
+    name,
     username,
-    email,
-    avatar,
     newavatars3,
     bio
   } = req.body; 
@@ -111,16 +128,33 @@ router.put('/editprofile',[ auth ], async (req, res) => {
     const user = await User.findById(req.user.id).select('-password');
     const profile = await Profile.findOne({ user: req.user.id });
 
+    const user1 = await User.findOne({ username: username });    
+
+    if (user1) {
+      if (user1._id != req.user.id) {
+        return res.status(400).json({ msg: 'Username already exists'});
+      }
+    }
+    
+
     if (!profile || !user) {
       return res.status(404).json({ msg: 'User Profile not found' });
     }
 
-    profile.name = fullname
+    profile.name = name
     profile.bio = bio
+    profile.username = username
 
-    
+    if (newavatars3 !== '') {
+      profile.avatar = newavatars3
+      user.avatar = newavatars3
+    }    
+
+    user.name = name
+    user.username = username
 
     await profile.save();
+    await user.save();
 
     res.json(profile);
   } catch (err) {
@@ -131,19 +165,65 @@ router.put('/editprofile',[ auth ], async (req, res) => {
 );
 
 
-router.put(
-  '/uploaddata',
-  [
-      auth
-  ],
-  async (req, res) => {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-      }
+router.put('/createprofile',[ auth ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
 
-  const { s3path, uploadFileName, uploadFileDescription, uploadFileTags } = req.body;
-  //console.log(req.user)
+  const {
+    newavatars3,
+    bio,
+    social
+  } = req.body; 
+
+  try {
+    
+    const user = await User.findById(req.user.id).select('-password');
+    const profile = await Profile.findOne({ user: req.user.id });  
+    
+
+    if (!profile || !user) {
+      return res.status(404).json({ msg: 'User Profile not found' });
+    }
+
+    profile.bio = bio
+
+    if (newavatars3 !== '') {
+      profile.avatar = newavatars3
+      user.avatar = newavatars3
+    }
+    if (social) {
+      profile.social = social.map(function(links) {
+        const sociallinks = {
+          title: links.title,
+          url: links.url,
+          link: links.link
+        }
+        return sociallinks;    
+      })
+    } 
+
+
+    await profile.save();
+    await user.save();
+
+    res.json(profile);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+}
+);
+
+
+router.put('/uploaddata',[ auth ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
+
+  const { s3path, originalname, uploadFileName, uploadFileDescription, uploadFileTags } = req.body;
 
   try {
     
@@ -154,21 +234,23 @@ router.put(
       return res.status(404).json({ msg: 'User Profile not found' });
     }
 
-
-
+    if (uploadFileName == "") {
+      var newname = originalname
+    } else {
+      var newname = uploadFileName
+    }
+  
     const newfiles = {
       user: req.user.id,
       filename: s3path,
-      newname: uploadFileName,
-      //filetype: file.newtype,
+      newname: newname,
       description: uploadFileDescription,
-      name: user.name,
-      avatar: user.avatar
-    }         
+      username: user.username,
+      avatar: user.avatar,
+      tags: uploadFileTags
+    }
 
     profile.files.unshift(newfiles);
-
-   
 
     await profile.save();
 
@@ -183,7 +265,7 @@ router.put(
 // @route    DELETE api/profile/files/:userfile_id
 // @desc     Delete experience from profile
 // @access   Private
-router.put('/files/:id', auth, async (req, res) => {
+router.put('/files/delete/:id', auth, async (req, res) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id });
 
@@ -209,8 +291,9 @@ router.put('/files/:id', auth, async (req, res) => {
 router.put('/files/edit/:id', auth, async (req, res) => {
 
   const {
-    newfilename,
-    newfiledescription     
+    editFileName,
+    editFileDescription,
+    editFileTags  
   } = req.body; 
 
   try {
@@ -221,11 +304,11 @@ router.put('/files/edit/:id', auth, async (req, res) => {
       .indexOf(req.params.id);
       
     
-    profile.files[Index].newname = newfilename;
-    profile.files[Index].description = newfiledescription; 
-    console.log('new')
+    profile.files[Index].newname = editFileName;
+    profile.files[Index].description = editFileDescription; 
+    profile.files[Index].tags = editFileTags;
+
     await profile.save();
-    console.log('save')
 
     res.json(profile);
   } catch (err) {
@@ -233,6 +316,7 @@ router.put('/files/edit/:id', auth, async (req, res) => {
     res.status(500).send('Server Error');
   }
 });
+
 
 // @route    GET api/profile
 // @desc     Get all profiles
@@ -252,10 +336,33 @@ router.get('/', async (req, res) => {
 // @desc     Get profile by user ID
 // @access   Public
 router.get('/user/:user_id', async (req, res) => {
-  //console.log(req.params)
+  console.log(req.params)
   try {
     const profile = await Profile.findOne({
       user: req.params.user_id
+    }).populate('user', ['name', 'avatar']);
+
+    if (!profile) return res.status(400).json({ msg: 'Profile not found' });
+
+    res.json(profile);
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind == 'ObjectId') {
+      return res.status(400).json({ msg: 'Profile not found' });
+    }
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// @route    GET api/profile/username/:user_id
+// @desc     Get profile by user ID
+// @access   Public
+router.get('/username/:username', async (req, res) => {
+  console.log(req.params)
+  try {
+    const profile = await Profile.findOne({
+      username: req.params.username
     }).populate('user', ['name', 'avatar']);
 
     if (!profile) return res.status(400).json({ msg: 'Profile not found' });
@@ -274,8 +381,15 @@ router.get('/user/:user_id', async (req, res) => {
 // @desc     Follow a profile
 // @access   Private
 router.put('/follow/:id', auth, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
+
+  const { profileID } = req.body;   
+
   try {
-    const profile = await Profile.findOne({ user: req.params.id });
+    const profile = await Profile.findOne({ user: profileID }); 
 
     const profile1 = await Profile.findOne({ user: req.user.id });
 
@@ -304,8 +418,15 @@ router.put('/follow/:id', auth, async (req, res) => {
 // @desc     Unfollow a profile
 // @access   Private
 router.put('/unfollow/:id', auth, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
+
+  const { profileID } = req.body;   
+
   try {
-    const profile = await Profile.findOne({ user: req.params.id });
+    const profile = await Profile.findOne({ user: profileID });  
 
     const profile1 = await Profile.findOne({ user: req.user.id });
 
@@ -334,6 +455,46 @@ router.put('/unfollow/:id', auth, async (req, res) => {
     res.json(profile1.following);
   } catch (err) {
     console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// @route    GET api/profile/following/:user_id
+// @desc     Get profile follower
+// @access   Public
+router.get('/messengers/:id', async (req, res) => {
+  console.log(req.params)
+  try {
+    const profile = await Profile.findOne({ user: req.params.id }); 
+
+    if (!profile) return res.status(400).json({ msg: 'Profile not found' });
+
+    let following = []
+    let followers = []
+
+    if (profile.following.length > 0) {
+      for (var i=0; i <= profile.following.length - 1; i++) {
+        let followingprofile = await Profile.findOne({ user: profile.following[i].user });
+        following.push(followingprofile)
+      }
+    }
+
+    if (profile.followers.length > 0) {
+      for (var i=0; i <= profile.followers.length - 1; i++) {
+        let followersprofile = await Profile.findOne({ user: profile.followers[i].user });        
+        followers.push(followersprofile)
+      }
+    }   
+    
+    let messengers = { following: following, followers: followers }
+
+    res.json(messengers);
+  } catch (err) {
+    console.error(err.message);
+    if (err.kind == 'ObjectId') {
+      return res.status(400).json({ msg: 'Profile not found' });
+    }
     res.status(500).send('Server Error');
   }
 });
@@ -610,11 +771,12 @@ router.put(
     try {
       
       const user = await User.findById(req.user.id).select('-password');
-      const profile = await Profile.findOne({ user: req.user.id });  
+      const profile = await Profile.findOne({ user: req.body.pageprofileID });  
+
 
       const newComment = {
         text: req.body.comment,
-        name: user.name,
+        username: user.username,
         avatar: user.avatar,
         user: req.user.id,
         parentID: req.body.parentID,
@@ -674,6 +836,193 @@ router.delete('/files/comments/:id/:comment_id', auth, async (req, res) => {
     await profile.save();
 
     res.json(profile.files[Index].comments);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+
+router.put('/social',[ auth ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
+
+  const { link, linktitle, linkurl } = req.body; 
+
+  try {
+    
+    const profile = await Profile.findOne({ user: req.user.id });
+
+    if (!profile) {
+      return res.status(404).json({ msg: 'User Profile not found' });
+    }
+
+    const newLink = {
+      title: linktitle,
+      url: linkurl,
+      link: link,
+    }
+    console.log(newLink); 
+    
+    profile.social.unshift(newLink);  
+
+    await profile.save();
+
+    res.json(profile);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+}
+);
+
+
+router.put('/social/edit/:id',[ auth ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
+
+  const { link, editlinktitle, editlinkurl } = req.body; 
+
+  try {
+    
+    const profile = await Profile.findOne({ user: req.user.id });
+
+    if (!profile) {
+      return res.status(404).json({ msg: 'User Profile not found' });
+    }
+
+    const Index = profile.social
+      .map(link => link._id.toString())
+      .indexOf(req.params.id);
+      
+    profile.social[Index].title = editlinktitle;
+    profile.social[Index].url = editlinkurl;    
+    profile.social[Index].link = link; 
+
+
+    await profile.save();
+
+    res.json(profile);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+}
+);
+
+
+
+router.delete('/social/delete/:id',[ auth ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
+
+  try {
+    
+    const profile = await Profile.findOne({ user: req.user.id });
+
+    if (!profile) {
+      return res.status(404).json({ msg: 'User Profile not found' });
+    }
+
+    const Index = profile.social
+      .map(link => link._id.toString())
+      .indexOf(req.params.id);
+      
+    profile.social.splice(Index, 1);
+
+
+    await profile.save();
+
+    res.json(profile);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+}
+);
+
+
+// @route    PUT api/profile/files/like/:id
+// @desc     Like a file
+// @access   Private
+router.put('/files/like/:id', auth, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
+
+  const { profileID } = req.body; 
+
+  try {
+
+    const profile = await Profile.findOne({ user: profileID });    
+    console.log(profile)
+
+    const Index = profile.files
+      .map(file => file._id.toString())
+      .indexOf(req.params.id);    
+
+    // Check if the post has already been liked
+    if (
+      profile.files[Index].likes.filter(like => like.user.toString() === req.user.id).length > 0
+    ) {
+      return res.status(400).json({ msg: 'Post already liked' });
+    }
+
+    profile.files[Index].likes.unshift({ user: req.user.id });
+
+    await profile.save();
+
+    res.json(profile);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route    PUT api/posts/unlike/:id
+// @desc     Like a post
+// @access   Private
+router.put('/files/unlike/:id', auth, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });    
+  }
+
+  const { profileID } = req.body; 
+
+  try {
+
+    const profile = await Profile.findOne({ user: profileID });   
+
+    const Index = profile.files
+      .map(file => file._id.toString())
+      .indexOf(req.params.id);    
+
+    // Check if the post has already been unliked
+    if (
+      profile.files[Index].likes.filter(like => like.user.toString() === req.user.id).length === 0
+    ) {
+      return res.status(400).json({ msg: 'Post has not been liked' });
+    }
+
+    // Get remove index
+    const removeIndex = profile.files[Index].likes
+      .map(like => like.user.toString())
+      .indexOf(req.user.id);
+
+      profile.files[Index].likes.splice(removeIndex, 1);
+
+    await profile.save();
+
+    res.json(profile);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

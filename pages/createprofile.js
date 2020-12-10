@@ -5,16 +5,17 @@ import NewNav from '../components/NewNav'
 import Link from 'next/link'
 import axios from 'axios'
 import Router from 'next/router'
-import { Textarea, TextInput, Text, Button, toaster, Pane, Icon, Switch, Avatar, Heading } from 'evergreen-ui'
+import { Textarea, TextInput, IconButton, Button, toaster, Pane, Icon, Switch, Avatar, Heading } from 'evergreen-ui'
 import { withAuth } from "../components/withAuth"
+import Markdown from '../components/markdown'
 
 class createprofile extends Component {
 
-    static async getInitialProps (ctx, user) {
+    static async getInitialProps (query, user) {
         
-        const res = ctx.res
+        const res = query.res
 
-        
+        const token = axios.defaults.headers.common['x-auth-token']        
              
         if (!user) {
             if(res) { // if on server
@@ -25,9 +26,9 @@ class createprofile extends Component {
             } else { // on client
                 Router.push('/')                
             }
-            return { user }
+            return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, user, token }
         } else {
-            return { user }
+            return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, user, token }
         }        
     };
 
@@ -35,10 +36,16 @@ class createprofile extends Component {
         super(props)
 
         this.state = {
+            token: this.props.token,
+            ua: this.props.ua,
             user: this.props.user,
             fullname: '',
             avatar: '',            
-            bio: ''            
+            bio: '',
+            social: [],
+            addlink: false,
+            linktitle: '',
+            linkurl: ''
         }
     };
 
@@ -49,7 +56,7 @@ class createprofile extends Component {
 
     async createProfile(e) {
         e.preventDefault()
-        const { user, avatar, bio, newavatar } = this.state
+        const { bio, newavatar, social } = this.state
 
         if (newavatar) {
             var data = new FormData();
@@ -63,66 +70,36 @@ class createprofile extends Component {
                 }
             })
 
-            if (response) {
-                if ( 200 === response.status ) {
-    
-                    try {
-                        const config = {
-                            headers: {
-                            'Content-Type': 'application/json'
-                            }
-                        };   
-                        
-                        const newavatars3 = 'https://indielink-uploads.s3-eu-west-1.amazonaws.com/' + response.data.image[0]
+            var newavatars3 = 'https://indielink-uploads.s3-eu-west-1.amazonaws.com/' + response.data.image[0]
 
-                        const formData = {
-                            user,
-                            avatar,
-                            newavatars3,
-                            bio   
-                        };
-    
-                        console.log(formData)
-    
-                        const res = await axios.post('/api/profile/', formData, config);
-                        console.log(res)
-    
-                        Router.push('/[id]', `/${user.username}`);
-    
-                    } catch (error) {
-                        console.error(error)
-                    }
-                }
-            }   
         } else {
-            try {
-                const config = {
-                    headers: {
-                    'Content-Type': 'application/json'
-                    }
-                };   
-                
-                const newavatars3 = ''
-
-                const formData = {
-                    user,
-                    avatar,
-                    newavatars3,
-                    bio                       
-                };
-
-                console.log(formData)
-
-                const res = await axios.post('/api/profile/', formData, config);
-                console.log(res)
-
-                Router.push('/[id]', `/${user.username}`);
-
-            } catch (error) {
-                console.error(error)
-            }
+            var newavatars3 = ''
         }
-        
+    
+        try {
+            const config = {
+                headers: {
+                'Content-Type': 'application/json',
+                'x-auth-token': this.props.token
+                }
+            };      
+
+            const formData = {
+                newavatars3,
+                bio,
+                social 
+            };
+
+
+            const res = await axios.put('/api/profile/createprofile', formData, config);
+           
+
+            const route = '/' + res.data.username
+            Router.push(route);
+
+        } catch (error) {
+            console.error(error)
+        }                
     }
     
     
@@ -149,20 +126,68 @@ class createprofile extends Component {
         
     }
 
-    render() {
-        const { user } = this.props
-        const { avatar, bio } = this.state
 
-        //console.log(user)
+    async addLink(e) {
+        e.preventDefault()
+
+        const {  linktitle, linkurl } = this.state
+
+        if (linktitle == '' || linkurl == '') {
+            alert('Please make sure the links are not left blank')
+        }
+
+        const link = ('[' + linktitle + ']' + '(' + linkurl + ')')
+        
+
+        try {           
+            
+            this.setState(state => {
+                state.social.unshift({
+                    title: linktitle,
+                    url: linkurl,
+                    link: link,
+                })
+            })
+
+            this.setState({ 
+                addlink: false,
+                linktitle: '',
+                linkurl: ''               
+            })
+
+        } catch (error) {
+            console.error(error)
+        }        
+    }
+
+
+    async deleteLink(index) {
+
+        const { social } = this.state
+
+        try {
+            social.splice(index, 1)
+
+            this.setState({ 
+                social: social
+            }, () => console.log(this.state.social))
+
+        } catch (error) {
+            console.error(error)
+        }        
+    }
+
+    render() {
+        const { user, ua } = this.props
+        const { avatar, bio, social, addlink, linktitle, linkurl } = this.state
 
         return (
             <div>
-                <Pane height='60px'>
-                    <NewNav user={user}/>
+                <Pane>
+                    <NewNav user={user} ua={ua}/>
                 </Pane> 
-                <Pane
-                        width='100vh'
-                        elevation={2}
+                <Pane               
+                        maxWidth='100vh'      
                         alignItems="center"
                         justifyContent="center"
                         flexDirection="column"
@@ -173,6 +198,7 @@ class createprofile extends Component {
                         paddingLeft={20}
                         paddingRight={20}
                         paddingBottom={20}
+                        marginBottom={30}
                     >
                         <Pane width='100%'>
 
@@ -203,8 +229,8 @@ class createprofile extends Component {
                                                     isSolid
                                                     size={120}
                                                     marginBottom={10}
-                                                    name="cian"
-                                                    alt="cian o shea"
+                                                    name={user.name}
+                                                    alt={user.name}
                                                     src={avatar}
                                                 />
                                                 <input type="file" id="image" name="file" accept="image/*" onChange={(e) => this.newAvatar(e)}></input>                                           
@@ -221,7 +247,105 @@ class createprofile extends Component {
                                         onChange={e => this.onChange(e)}
                                         height={200}
                                     />
-                                </Pane>  
+                                </Pane>
+
+                                <Pane
+                            alignItems="center"
+                            justifyContent="center"
+                            flexDirection="column"
+                            display="flex"
+                            marginBottom={20}
+                        >
+                            <Heading size={600} marginTop="default" textAlign="center" marginBottom={20}>Add Social Links</Heading>
+                            <Button onClick={() => this.setState({ addlink: true, editlink: false })} iconBefore="plus" appearance="primary" intent="warning">Add</Button>
+
+                            { social.length > 0 &&
+                                <Pane textAlign='center' justifyContent="center" marginTop={20}>
+                                    <div className='settings-profile'>
+                                        <Pane alignItems="center" justifyContent="center" flexDirection="column" display="flex">
+                                            <Heading size={300} marginTop="default" textAlign="center" marginBottom={10}>Link Title</Heading>
+                                            <ul className='FileNames'>
+                                                {social.map((link, index) => (
+                                                    <Pane key={index} link={link}
+                                                        alignItems="center"
+                                                        justifyContent="center"
+                                                        flexDirection="row"
+                                                        display="flex"
+                                                        textAlign="center"
+                                                    >
+                                                        <TextInput
+                                                            width="200px"
+                                                            marginRight={10}
+                                                            value={link.title}
+                                                            readOnly
+                                                        />                                                                                                
+                                                    </Pane>                                                
+                                                ))}                    
+                                            </ul>  
+                                        </Pane>
+                                    </div>
+                                    <div className='settings-profile'>
+                                        <Pane alignItems="center" justifyContent="center" flexDirection="column" display="flex">
+                                            <Heading size={300} marginTop="default" textAlign="center" marginBottom={10}>Link URL</Heading>
+                                            <ul className='FileNames'>
+                                                {social.map((link, index) => (
+                                                    <Pane key={index} link={link}
+                                                        alignItems="center"
+                                                        justifyContent="center"
+                                                        flexDirection="row"
+                                                        display="flex"
+                                                        textAlign="center"
+                                                    >
+                                                        <TextInput
+                                                            width="200px"
+                                                            marginRight={10}
+                                                            value={link.url}
+                                                            readOnly
+                                                        />                
+                                                        <IconButton icon='cross' onClick={() => this.deleteLink(index)} appearance="minimal" intent="danger"/>                                                                                
+                                                    </Pane>                                                
+                                                ))}                    
+                                            </ul>  
+                                        </Pane>
+                                    </div>
+                                </Pane>   
+                            } 
+                            
+                        </Pane> 
+
+                        {
+                            addlink &&
+                            <Pane marginTop={20} marginBottom={50}>
+                                <div className='settings-profile'>
+                                    <Pane alignItems="center" justifyContent="center" flexDirection="column" display="flex">
+                                        <Heading size={300} marginTop="default" textAlign="center" marginBottom={10}>Link Title</Heading>
+                                        <TextInput
+                                            placeholder='IndieLink'
+                                            name='linktitle'
+                                            value={linktitle}
+                                            onChange={e => this.onChange(e)}
+                                        />
+                                    </Pane>
+                                </div>
+                                <div className='settings-profile'>
+                                    <Pane alignItems="center" justifyContent="center" flexDirection="column" display="flex">
+                                        <Heading size={300} marginTop="default" textAlign="center" marginBottom={10}>Link URL</Heading>
+                                        <TextInput
+                                            placeholder='https://www.indielink.io/'
+                                            name='linkurl'
+                                            value={linkurl}
+                                            onChange={e => this.onChange(e)}
+                                        />
+                                    </Pane>
+                                </div>
+                                <div className='settings-profile1'>                            
+                                    <Pane marginBottom={20} alignItems="center" justifyContent="center" flexDirection="row" display="flex">
+                                        <Button marginTop={20} onClick={(e) => this.addLink(e)} appearance="primary">Submit</Button>
+                                        <Button marginTop={20} onClick={() => this.setState({ addlink: false, linktitle: '', linkurl: '' })} appearance="minimal" intent="danger">Cancel</Button>
+                                    </Pane>  
+                                </div>    
+                            </Pane>                                
+                        }
 
                                 <Button width={100} height={40}  justifyContent='center'  onClick={(e) => this.createProfile(e)} type="submit" appearance="primary">Complete</Button>
                                 <Button width={100} height={40}  justifyContent='center'  onClick={(e) => this.createProfile(e)} type="submit" appearance="minimal" intent="danger">Later</Button>

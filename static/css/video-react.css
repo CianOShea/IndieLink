@@ -245,11 +245,11 @@ body.video-react-full-window {
   padding: 0;
   margin: 0;
   height: 100%;
-  overflow-y: auto;
+  /* overflow-y: auto; */
 }
 body.video-react-full-window .video-react-fullscreen {
   position: fixed;
-  overflow: hidden;
+  /* overflow: hidden; */
   z-index: 1000;
   left: 0;
   top: 0;
@@ -484,7 +484,7 @@ body.video-react-full-window .video-react-fullscreen {
   -moz-transition: all 0.4s;
   -o-transition: all 0.4s;
   transition: all 0.4s;
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 .video-react .video-react-menu-button-inline:before {
   width: 2.222222222em;
@@ -520,7 +520,7 @@ body.video-react-full-window .video-react-fullscreen {
   width: auto;
   height: 100%;
   margin: 0;
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 .video-react-no-flex .video-react-menu-button-inline .video-react-menu {
@@ -601,7 +601,7 @@ body.video-react-full-window .video-react-fullscreen {
   clip: rect(0 0 0 0);
   height: 1px;
   margin: -1px;
-  overflow: hidden;
+  /* overflow: hidden; */
   padding: 0;
   position: absolute;
   width: 1px;
@@ -955,8 +955,8 @@ body.video-react-full-window .video-react-fullscreen {
 .video-react .video-react-menu-button-popup.video-react-volume-menu-button .video-react-menu-content {
   height: 0;
   width: 0;
-  overflow-x: hidden;
-  overflow-y: hidden;
+  /* overflow-x: hidden; */
+  /* overflow-y: hidden; */
 }
 .video-react .video-react-volume-menu-button-vertical:hover .video-react-menu-content,
 .video-react .video-react-volume-menu-button-vertical:focus .video-react-menu-content,

@@ -32,6 +32,13 @@ export default class signup extends Component {
 
         const { name, username, email, password, password2 } = this.state
 
+        var passwordStrength =  /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,20}$/;
+
+        if (!password.match(passwordStrength)){
+            toaster.danger('Please ensure your password has between 6 and 20 characters, at least one numeric digit, one uppercase and one lowercase letter');
+            return
+        } 
+
         if (password !== password2) {
             toaster.danger('Passwords do not match');
           } else {
@@ -53,12 +60,30 @@ export default class signup extends Component {
 
     
                 Cookie.set('token', res.data.token);
-                console.log(res.data);
+                //console.log(res.data);
 
                 if (Cookie.get('token')) {
                     setAuthToken(Cookie.get('token'));
                     const response = await axios.get('/api/auth');
-                    console.log(response.data);
+                    // console.log(response.data);
+
+
+                    const config = {
+                        headers: {
+                        'Content-Type': 'application/json',
+                        'x-auth-token': res.data.token
+                        }
+                    };   
+
+                    const user = response.data
+
+                    const formData = {
+                        user                   
+                    };
+    
+    
+                    const resProfile = await axios.post('/api/profile', formData, config);                   
+
                     Router.push('/createprofile');
                   }          
                 
@@ -98,7 +123,7 @@ export default class signup extends Component {
                                 </div>
 
                                 <div className="wrap-input100 validate-input m-b-23" data-validate = "Username is required">
-                                    <span className="label-input100">Username</span>
+                                    <span className="label-input100">Username - This cannot be changed</span>
                                     <input className="input100"  type='username' placeholder='Username' name='username' value={username} onChange={e => this.onChange(e)}/>
                                     <span className="focus-input100" data-symbol="&#xf206;"></span>
                                 </div>
@@ -131,27 +156,7 @@ export default class signup extends Component {
                                         </div>
                                     </div>
                                 </Pane>
-
-                                {/* <div className="txt1 text-center p-t-54 p-b-20">
-                                    <span>
-                                        Or Log In Using
-                                    </span>
-                                </div>
-
-                                <div className="flex-c-m">
-                                    <a href="#" className="login100-social-item bg1">
-                                        <i className="fa fa-facebook"></i>
-                                    </a>
-                                    <a href="#" className="login100-social-item bg2">
-                                        <i className="fa fa-twitter"></i>
-                                    </a>
-                                    <a href="#" className="login100-social-item bg3">
-                                        <i className="fa fa-google"></i>
-                                    </a>
-                                    <a href="#" className="login100-social-item bg4">
-                                        <i className="fa fa-github"></i>
-                                    </a>
-                                </div> */}
+                        
                                 <Pane marginTop={20} textAlign='center'>
                                     <Pane>
                                         <Text>Already have an account?</Text>

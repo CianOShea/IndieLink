@@ -4,26 +4,22 @@ import React, { Component, Fragment } from 'react'
 import NewNav from '../components/NewNav'
 import axios from 'axios'
 import Link from 'next/link'
-import { Button, Pane, Heading, Avatar, Paragraph, Icon } from 'evergreen-ui'
+import { Button, Pane, Heading, Avatar, Dialog, Icon } from 'evergreen-ui'
 import { withAuth } from '../components/withAuth'
+import {UserAgentProvider, UserAgent} from '@quentin-sommer/react-useragent'
 
 import getConfig from 'next/config'
 const { publicRuntimeConfig } = getConfig()
 
 class jobs extends Component {
 
-    static async getInitialProps ( {query: {id, res}}, user, posts, userfiles, profiles, profile, teams) {
+    static async getInitialProps ( query, user ) {
 
-
-        const getJobs = await axios.get( `${publicRuntimeConfig.SERVER_URL}/api/jobs`)
-                    
-        const foundjobs = getJobs.data
-        //console.log(foundjobs)
-
-
+        const getJobs = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/jobs`);
+        const jobs = getJobs.data
           
 
-        return {id, foundjobs}
+        return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, user, jobs }
       };
 
     constructor(props) {
@@ -31,7 +27,9 @@ class jobs extends Component {
 
         this.state = {
             user: this.props.user,
-            jobs: this.props.foundjobs
+            ua: this.props.ua,
+            jobs: this.props.jobs,
+            isShown: false
         }
     };
 
@@ -41,133 +39,256 @@ class jobs extends Component {
         this.setState({ [e.target.name]: e.target.value })
     }
 
-    async deleteJob(job) {
-
-        try {
-            const res = await axios.delete(`/api/jobs/${job._id}`)
-            console.log(res)
-
-            const getJobs = await axios.get( '/api/jobs')                    
-            const foundjobs = getJobs.data
-
-            this.setState({ jobs: foundjobs })       
-
-        } catch (error) {
-            console.error(error)
-        }
-        
-    }
-
 
     render() {
 
-        const { user } = this.props
-        const { jobs } = this.state
-        //console.log(jobs)
+        const { user, ua } = this.props
+        const { jobs, isShown } = this.state
+        
 
         return (
-            <div>
-                <Pane height='60px'>
-                    <NewNav user={user}/>
-                </Pane> 
-                <div className='layout'>
-                    <div className='jobs'>     
-                        <Pane 
-                            justifyContent="center"
-                            marginLeft="auto"
-                            marginRight="auto"
-                            paddingTop={20}
-                            paddingRight={10}
-                            paddingLeft={10}
-                            textAlign="center"
-                            marginBottom={50}
-                        >
-                            <Heading marginBottom={10}  size={900} fontWeight={500} textDecoration="none" textAlign="center">Jobs</Heading>
-                            <Link href={'/createjob'} textDecoration="none">
-                                <Button height={40} textAlign="center"  type="submit" appearance="primary" intent="warning">Search For Talent +</Button>
-                            </Link>
-                            
-                        </Pane>
+            <UserAgentProvider ua={ua}>
+                <UserAgent computer tablet>
+                    <Pane>
+                        <NewNav user={user} ua={ua}/>
+                    </Pane>      
+                    <Pane 
+                        justifyContent="center"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingTop={20}
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={50}
+                    >
+                        <Heading marginBottom={10}  size={900} fontWeight={500} textDecoration="none" textAlign="center">Jobs</Heading>
                         
-                        <Pane 
-                            alignItems="center"
-                            justifyContent="center"
-                            flexDirection="row"
-                            display="flex"
-                            marginLeft="auto"
-                            marginRight="auto"
-                            paddingRight={10}
-                            paddingLeft={10}
-                            textAlign="center"
-                            marginBottom={100}
+                        {
+                            user ?
+                            <Fragment>
+                                <Link href={'/createjob'}>
+                                    <Button height={40} textAlign="center"  type="submit" appearance="primary" intent="warning">Search For Talent +</Button>
+                                </Link>
+                            </Fragment>
+                            :
+                            <Fragment> 
+                                <Button onClick={() => this.setState({ isShown: true })} height={40} textAlign="center"  type="submit" appearance="primary" intent="warning">Search For Talent +</Button>                                                     
+                            </Fragment>
+                        }
+
+                        <Dialog
+                            isShown={isShown}
+                            onCloseComplete={() => this.setState({ isShown: false })}
+                            hasFooter={false}
+                            hasHeader={false}
                         >
-                            {
-                                jobs.length > 0 ?
-                                <Fragment>
-                                    <ul>
-                                        {jobs.map(job => (
-                                            <Pane key={job._id} job={job} 
-                                                marginTop={20}
-                                                marginBottom={20} 
-                                                float="left"
-                                                elevation={2}
-                                                hoverElevation={3}
-                                                borderRadius={4}
-                                                display="flex"
-                                                flexDirection="column"
-                                                height={300}
-                                                width={300}
-                                                padding={20}
-                                            >
-                                            
-                                                <Avatar
-                                                    marginLeft="auto"
-                                                    marginRight="auto"
-                                                    isSolid
-                                                    size={80}
-                                                    marginBottom={20}
-                                                    name="cian"
-                                                    src="../static/img3.jfif"
-                                                    alt="cian o shea"
-                                                />
-                                                <Heading size={500} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                            
-                                                    {job.company}
-                                                </Heading>
-                                                <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
-                                                    {job.jobtitle}
-                                                </Heading>
+                            <Heading textAlign='center' size={700} marginTop="default" marginBottom={50}>Please log in to create a Job listing.</Heading>                                
+                        </Dialog> 
+                        
+                    </Pane>
+                    
+                    <Pane 
+                        alignItems="center"
+                        justifyContent="center"
+                        flexDirection="row"
+                        display="flex"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={100}
+                    >
+                        {
+                            jobs ?
+                            <Fragment>
+                                {
+                                    jobs.length > 0 ?
+                                    <Fragment>
+                                        <ul>
+                                            {jobs.map(job => (
+                                                <Pane key={job._id} job={job} 
+                                                    marginTop={20}
+                                                    marginBottom={20} 
+                                                    float="left"
+                                                    elevation={2}
+                                                    hoverElevation={3}
+                                                    borderRadius={30}
+                                                    display="flex"
+                                                    flexDirection="column"
+                                                    height={300}
+                                                    width={250}
+                                                    padding={20}
+                                                    marginRight={10}
+                                                >
                                                 
-                                                <Heading size={300} fontWeight={500} textDecoration="none" textAlign="center">
-                                                    {job.location}
-                                                </Heading>                               
+                                                    <Avatar
+                                                        marginLeft="auto"
+                                                        marginRight="auto"
+                                                        isSolid
+                                                        size={80}
+                                                        marginBottom={20}
+                                                        name={job.company}
+                                                        src={job.logo}
+                                                        alt={job.company}
+                                                    />
+                                                    <Heading size={500} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                            
+                                                        {job.company}
+                                                    </Heading>
+                                                    <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                                                        {job.jobtitle}
+                                                    </Heading>
                                                     
-                                                <Pane marginTop={30} alignItems="center" textAlign="center">                                            
-                                                    {
-                                                    true ?// job.user.toString() == user._id ?
-                                                        <Fragment>
-                                                            <Link href={{ pathname: 'job/[id]', query: { jobid: job._id } } } as={`job/${job._id}`}>More Info</Link>
-                                                            <Button onClick={() => this.deleteJob(job)} textAlign="center"  type="submit" appearance="minimal" intent="danger">Delete</Button>
-                                                        </Fragment>
-                                                        :
-                                                        <Fragment>
-                                                            <Link href={{ pathname: 'job/[id]', query: { jobid: job._id } } } as={`job/${job._id}`}>More Info</Link>                                              
-                                                        </Fragment>
-                                                    }
-                                                </Pane>  
-                                            </Pane>
-                                        ))}                   
-                                    </ul> 
-                                </Fragment>
-                                :
-                                <Fragment>
-                                    There are no jobs available at this time. Please try again later!
-                                </Fragment>
-                            }
-                            
-                        </Pane>  
-                    </div>    
-                </div>      
-            </div>
+                                                    <Heading size={300} fontWeight={500} textDecoration="none" textAlign="center">
+                                                        {job.location}
+                                                    </Heading>                               
+                                                        
+                                                    <Pane marginTop={20} alignItems="center" textAlign="center">  
+                                                        <Link href={{ pathname: 'job/[id]', query: { jobID: job._id } } } as={`job/${job._id}`}>
+                                                            <button className="follow-button">More Info</button>
+                                                        </Link>
+                                                    </Pane> 
+                                                </Pane>
+                                            ))}                   
+                                        </ul> 
+                                    </Fragment>
+                                    :
+                                    <Fragment>
+                                        There are no jobs available at this time. Please try again later!
+                                    </Fragment>
+                                }
+                            </Fragment>
+                            :
+                            <Fragment>
+                                There are no jobs available at this time. Please try again later!
+                            </Fragment>
+                        }                           
+                        
+                    </Pane>        
+                </UserAgent>
+
+                <UserAgent mobile>
+                    <Pane>
+                        <NewNav user={user} ua={ua}/>
+                    </Pane>      
+                    <Pane 
+                        justifyContent="center"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingTop={20}
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={50}
+                    >
+                        <Heading marginBottom={10}  size={900} fontWeight={500} textDecoration="none" textAlign="center">Jobs</Heading>
+                        
+                        {
+                            user ?
+                            <Fragment>
+                                <Link href={'/createjob'} >
+                                    <Button height={40} textAlign="center"  type="submit" appearance="primary" intent="warning">Search For Talent +</Button>
+                                </Link>
+                            </Fragment>
+                            :
+                            <Fragment> 
+                                <Button onClick={() => this.setState({ isShown: true })} height={40} textAlign="center"  type="submit" appearance="primary" intent="warning">Search For Talent +</Button>                                                     
+                            </Fragment>
+                        }
+
+                        <Dialog
+                            isShown={isShown}
+                            onCloseComplete={() => this.setState({ isShown: false })}
+                            hasFooter={false}
+                            hasHeader={false}
+                        >
+                            <Heading textAlign='center' size={700} marginTop="default" marginBottom={50}>Please log in to create a Job listing.</Heading>                                
+                        </Dialog> 
+                        
+                    </Pane>
+                    
+                    <Pane 
+                        alignItems="center"
+                        justifyContent="center"
+                        flexDirection="row"
+                        display="flex"
+                        marginLeft="auto"
+                        marginRight="auto"
+                        paddingRight={10}
+                        paddingLeft={10}
+                        textAlign="center"
+                        marginBottom={100}
+                    >
+                        {
+                            jobs ?
+                            <Fragment>
+                                {
+                                    jobs.length > 0 ?
+                                    <Fragment>
+                                        <ul>
+                                            {jobs.map(job => (
+                                                <Pane key={job._id} job={job} 
+                                                    marginTop={20}
+                                                    marginBottom={20} 
+                                                    elevation={2}
+                                                    hoverElevation={3}
+                                                    borderRadius={30}
+                                                    display="flex"
+                                                    flexDirection="column"
+                                                    height={300}
+                                                    width={250}
+                                                    padding={20}
+                                                >
+                                                
+                                                    <Avatar
+                                                        marginLeft="auto"
+                                                        marginRight="auto"
+                                                        isSolid
+                                                        size={80}
+                                                        marginBottom={20}
+                                                        name={job.company}
+                                                        src={job.logo}
+                                                        alt={job.company}
+                                                    />
+                                                    <Heading size={500} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">                                            
+                                                        {job.company}
+                                                    </Heading>
+                                                    <Heading size={700} marginBottom={20} fontWeight={500} textDecoration="none" textAlign="center">
+                                                        {job.jobtitle}
+                                                    </Heading>
+                                                    
+                                                    <Heading size={300} fontWeight={500} textDecoration="none" textAlign="center">
+                                                        {job.location}
+                                                    </Heading>                               
+                                                        
+                                                    <Pane marginTop={20} alignItems="center" textAlign="center">  
+                                                        <Link href={{ pathname: 'job/[id]', query: { jobID: job._id } } } as={`job/${job._id}`}>
+                                                            <button className="follow-button">More Info</button>
+                                                        </Link>
+                                                    </Pane> 
+                                                </Pane>
+                                            ))}                   
+                                        </ul> 
+                                    </Fragment>
+                                    :
+                                    <Fragment>
+                                        There are no jobs available at this time. Please try again later!
+                                    </Fragment>
+                                }
+                            </Fragment>
+                            :
+                            <Fragment>
+                                There are no jobs available at this time. Please try again later!
+                            </Fragment>
+                        }                           
+                        
+                    </Pane>  
+                </UserAgent>
+
+            </UserAgentProvider>
+
+
         )
     }
 }

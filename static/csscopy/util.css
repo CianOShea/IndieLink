@@ -2364,7 +2364,7 @@
 /* ------------------------------------ */
 .wrap-pic-cir {
 	border-radius: 50%;
-	overflow: hidden;
+	/* overflow: hidden; */
 }
 .wrap-pic-cir img {
 	width: 100%;
@@ -2380,7 +2380,7 @@
 /* ------------------------------------ */
 .hov-img-zoom {
 	display: block;
-	overflow: hidden;
+	/* overflow: hidden; */
 }
 .hov-img-zoom img{
 	width: 100%;
@@ -2404,7 +2404,7 @@
 */
 .bo-cir {border-radius: 50%;}
 
-.of-hidden {overflow: hidden;}
+/* .of-hidden {overflow: hidden;} */
 
 .visible-false {visibility: hidden;}
 .visible-true {visibility: visible;}

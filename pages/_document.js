@@ -1,9 +1,7 @@
 /* This file is part of IndieLink. IndieLink is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. IndieLink is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with IndieLink.  If not, see <https://www.gnu.org/licenses/>.*/
 
 import React from 'react'
-
 import Document, { Head, Main, NextScript } from 'next/document'
-
 /**
  * Implements the skeleton of the HTML page
  */
@@ -46,32 +44,23 @@ class MyDocument extends Document {
           <link rel="stylesheet" type="text/css" href="/static/csscopy/util.css"/>
           <link rel="stylesheet" type="text/css" href="/static/csscopy/main.css"/>
 
-          {/* <script src="https://kit.fontawesome.com/b163762ff8.js" crossorigin="anonymous"></script> */}
+          {/* <script src="https://kit.fontawesome.com/b163762ff8.js" crossorigin="anonymous"></script> */}          
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css"></link>
           
-        
         </Head>
 
         <body>
           <Main/>
           <NextScript/>
-          {/* <script src="vendor/jquery/jquery-3.2.1.min.js"></script>
-          <script src="vendor/animsition/js/animsition.min.js"></script>
-          <script src="vendor/bootstrap/js/popper.js"></script>
-          <script src="vendor/bootstrap/js/bootstrap.min.js"></script>
-          <script src="vendor/select2/select2.min.js"></script>
-          <script src="vendor/daterangepicker/moment.min.js"></script>
-          <script src="vendor/daterangepicker/daterangepicker.js"></script>
-          <script src="vendor/countdowntime/countdowntime.js"></script>
-          <script src="js/main.js"></script> */}
         </body>
 
-        {/*language=CSS*/}
+        {/* language=CSS
         <style jsx global>{`
           #__next {
             width: 100vw;
             height: 100vh;
           }
-        `}</style>
+        `}</style> */}
       </html>
     )
   }

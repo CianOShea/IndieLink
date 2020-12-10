@@ -4,6 +4,7 @@ import React, { Component } from 'react'
 import NewNav from '../../../components/NewNav'
 import { Textarea, TextInput, Text, Button, toaster, Pane, Heading, Tab, Avatar } from 'evergreen-ui'
 import axios from 'axios'
+import MarkdownEditor from '../../../components/create-study/markdown-editor'
 import Router from 'next/router'
 import { withAuth } from '../../../components/withAuth'
 
@@ -12,13 +13,17 @@ const { publicRuntimeConfig } = getConfig()
 
 class jobapply extends Component {
 
-    static async getInitialProps ( {query: { jobid }}, user) {
+    static async getInitialProps ( query, user) {
 
-        const getJob = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/jobs/${jobid}`);        
+        const jobID = query.query.id
+
+        const token = axios.defaults.headers.common['x-auth-token']
+
+        const getJob = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/jobs/${jobID}`);        
         const currentjob = getJob.data
 
 
-        return { jobid, user, currentjob }
+        return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, token, jobID, user, currentjob }
       
     };
 
@@ -26,9 +31,13 @@ class jobapply extends Component {
         super(props)
 
         this.state = {
+            ua: this.props.ua,
             currentjob: this.props.currentjob,
-            applydescription: '',
-            cv: ''        
+            description: '',
+            cv: '',
+            text: '',
+            urlMap: {},
+            files: [],     
         }
     };
 
@@ -42,7 +51,7 @@ class jobapply extends Component {
         e.preventDefault()        
 
         let file = e.target.files[0]
-        console.log(file)
+        // console.log(file)
 
         if (file.type != "application/pdf") {
             alert('File type must be PDF')
@@ -55,10 +64,14 @@ class jobapply extends Component {
     async apply(e) {
         e.preventDefault()  
         
-        const { applydescription, cv, currentjob } = this.state
+        const { description, cv, currentjob, files } = this.state
 
-        try {
+        if (description == "") {
+            toaster.warning("Please provide your reason for applying")
+            return
+        }
 
+        if (cv != ''){
             var data = new FormData();
             data.append('newfileupload', cv);
 
@@ -68,85 +81,162 @@ class jobapply extends Component {
                     'Accept-Language': 'en-US,en;q=0.8',
                     'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
                 }
-            })
-            //console.log(response)  
+            }) 
               
-            const uploadcv = response.data.image[0]
+            var uploadcv = response.data.image[0]
+        }
+
+        try {
+
+            var data = new FormData();
+            for (const file of files){
+                data.append('newfileupload', file);                
+            }           
+                    
+            const response = await axios.post( '/api/uploadFile/upload', data, {
+                headers: {
+                    'accept': 'application/json',
+                    'Accept-Language': 'en-US,en;q=0.8',
+                    'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
+                }
+            })
+
+            for (var i=0; i<files.length; i++) {          
+                this.state.files[i].s3path = response.data.image[i]
+                this.state.files[i].originalname = response.data.originalname[i]
+            }
+            
 
 
             const config = {
                 headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'x-auth-token': this.props.token
                 }
             };
 
             const formData = {
-                applydescription,
-                uploadcv               
+                description,
+                uploadcv,
+                files               
             };
             
-            console.log(formData)
     
             const res = await axios.put(`/api/jobs/applicants/${currentjob._id}`, formData, config);
-            console.log(res)
+            // console.log(res)
+
+            toaster.success('Applied! Check notifications for updates')
 
             Router.push('/jobs')    
 
         } catch (error) {
             console.error(error)
+            toaster.warning(error.response.data.msg); 
+            
         }
 
 
         
     }
 
+    async setFiles(newFiles) {
+        const { files, previewImage, urlMap } = this.state
+        // console.log(newFiles)
+
+        if (newFiles[0].size <= 20000000) {
+
+            this.setState({ files: newFiles })   
+    
+            if (!previewImage) {
+            const preview = files.concat(newFiles).find(f =>
+                f.name.toLowerCase().endsWith('.png') ||
+                f.name.toLowerCase().endsWith('.jpg') ||
+                f.name.toLowerCase().endsWith('.jpeg') ||
+                f.name.toLowerCase().endsWith('.git') ||
+                f.name.toLowerCase().endsWith('.svg')
+            )
+        
+            if (preview) {
+                preview.url = window.URL.createObjectURL(preview)
+                this.setState({ previewImage: preview })
+            }
+            }
+        
+            const newBlobMap = Object.assign({}, urlMap)
+            newFiles.forEach(file => {
+            newBlobMap[file.name] = window.URL.createObjectURL(file)
+            })
+        
+            this.setState({ urlMap: newBlobMap })
+
+        } else {
+            toaster.warning("File size is too large. Maximum file size is 20MB");
+        }
+    }
+ 
+
+    setText(newText) {        
+        this.setState({ description: newText})        
+    }
+
     render() {
 
-        const { currentjob, user } = this.props
-        const { applydescription, cv } = this.state 
+        const { user, ua } = this.props
+        const { description, text, urlMap, files } = this.state 
         return (
             <div>
-                <Pane height='60px'>
-                    <NewNav user={user}/>
+                <Pane>
+                    <NewNav user={user} ua={ua}/>
                 </Pane>
-                <div className='teamidlayout'>
-                    <div className='teamid'>
+                <Pane 
+                    maxWidth='100vh'
+                    alignItems="center"
+                    justifyContent="center"
+                    flexDirection="column"
+                    display="flex"
+                    marginLeft="auto"
+                    marginRight="auto"
+                    textAlign="center"
+                    paddingLeft={20}
+                    paddingRight={20}
+                    paddingBottom={20}
+                >
+
+                    <Pane marginBottom={20}>   
+                        <Heading size={600} marginTop="default" marginBottom={10}>Describe why you would be a great fit for this position</Heading>                                 
+                    </Pane>
                     <Pane 
-                            alignItems="center"
-                            justifyContent="center"
-                            flexDirection="column"
-                            display="flex"
-                            marginLeft="auto"
-                            marginRight="auto"
-                            textAlign="center"
-                            paddingLeft={20}
-                            paddingRight={20}
-                            paddingBottom={20}
-                        >
+                        marginTop={16} 
+                        textAlign="left" 
+                        alignItems="center"
+                        justifyContent="center"
+                        marginLeft="auto"
+                        marginRight="auto"
+                    >
+                        <MarkdownEditor
+                            setText={(newText) => this.setText(newText)}
+                            setFiles={(newFiles) => this.setFiles(newFiles)}
+                            placeholder='Maybe add some images of your work or link to it...'
+                            uploadsAllowed={true}
+                            allowPreview={true}
+                            prependFilesToPreview
+                            urlMap={urlMap}
+                            name='description'
+                            text={description}
+                            files={files}
+                            height={300}
+                        />
+                    </Pane>
 
-                            <Pane marginBottom={20}>   
-                                <Heading size={500} marginTop="default" marginBottom={10}>Describe why you would be a great fit for this position</Heading>
-                                <Textarea
-                                    placeholder='Maybe add links to previous works or other online portfolios...'
-                                    name='applydescription'
-                                    value={applydescription}
-                                    onChange={e => this.onChange(e)}
-                                    width={500}
-                                    minHeight={200}
-                                />
-                            </Pane>
-                            
+                    <Pane marginBottom={20}>
+                        <Heading size={700} marginTop="default" marginBottom={10}>Optional: Upload PDF - C.V.</Heading>
+                        <Pane marginLeft={150}>
+                            <input type="file" id="cv" name="cv" accept="application/pdf" onChange={(e) => this.handleFile(e)}></input>  
+                        </Pane>     
 
-                            <Pane marginBottom={40} >
-                                <Heading size={700} marginTop="default" marginBottom={10}>Optional: Upload PDF - C.V.</Heading>
-        
-                                <input type="file" id="cv" name="cv" accept="application/pdf" onChange={(e) => this.handleFile(e)}></input>  
-                                              
-                            </Pane>
-                            <Button height={48} onClick={(e) => this.apply(e)} textAlign="center"  type="submit" appearance="primary" intent="warning">Apply</Button>
-                        </Pane>
-                    </div>
-                </div>
+                    </Pane>
+                    <Button height={48} onClick={(e) => this.apply(e)} textAlign="center"  type="submit" appearance="primary" intent="success">Apply</Button>
+                </Pane>
             </div>
         )
     }

@@ -14,10 +14,13 @@ const { publicRuntimeConfig } = getConfig()
 
 class create extends Component {
 
-    static async getInitialProps ({query: { markdownID }}, user) {  
+    static async getInitialProps ( query, user) {  
+
+        const token = axios.defaults.headers.common['x-auth-token']
+
+        const markdownID = query.query.id
         
-        const getMarkdown = await axios.get( `${publicRuntimeConfig.SERVER_URL}/api/markdown/${markdownID}`)
-                    
+        const getMarkdown = await axios.get( `${publicRuntimeConfig.SERVER_URL}/api/markdown/${markdownID}`)                    
         const markdown = getMarkdown.data
         //console.log(markdown)
 
@@ -35,13 +38,15 @@ class create extends Component {
             user = null
         }           
 
-        return { user, markdown, newBlobMap }
+        return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, token, user, markdown, newBlobMap }
            
     };
 
     constructor(props) {
         super(props)
         this.state = {
+          token: this.props.token,
+          ua: this.props.ua,
           user: this.props.user,
           currentmarkdown: this.props.markdown,
           title: this.props.markdown.title,
@@ -62,123 +67,107 @@ class create extends Component {
     async editMarkdown(e) {
         e && e.preventDefault()
 
-        const { user, markdown } = this.props
+        const { markdown } = this.props
         const { title, text, files } = this.state
 
         if (title === '' ) {
-            alert('Please make sure to title your work!')
+            toaster.warning('Please make sure to title your work!')
             return
         }
 
-        console.log(text)
-        console.log(files)        
+        if (text === '' ) {
+            toaster.warning('No article text found')
+            return
+        }
 
+        try {     
         
-        var data = new FormData();
-        if(files.length == 1) {
-            data.append('newfileupload', files[0]);            
-        }
-        if(files.length == 2) {
-            data.append('newfileupload', files[0]);
-            data.append('newfileupload', files[1]);          
-        }
-        if(files.length == 3) {
-            data.append('newfileupload', files[0]);
-            data.append('newfileupload', files[1]);
-            data.append('newfileupload', files[2]);            
-        }
-        if(files.length == 4) {
-            data.append('newfileupload', files[0]);
-            data.append('newfileupload', files[1]);
-            data.append('newfileupload', files[2]);
-            data.append('newfileupload', files[3]);             
-        }
-        if(files.length == 5) {
-            data.append('newfileupload', files[0]);
-            data.append('newfileupload', files[1]);
-            data.append('newfileupload', files[2]);
-            data.append('newfileupload', files[3]);
-            data.append('newfileupload', files[4]);            
-        }               
-                
-        const response = await axios.post( '/api/uploadFile/upload', data, {
-            headers: {
-                'accept': 'application/json',
-                'Accept-Language': 'en-US,en;q=0.8',
-                'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
-            }
-        })
-        console.log(response)
-        console.log(response.data.image[0])
-
-        for (var i=0; i<files.length; i++) {          
-            this.state.files[i].s3path = response.data.image[i]
-            this.state.files[i].originalname = response.data.originalname[i]
-
-        }
-        console.log(files)
-        
-
-        if (response) {
-            if ( 200 === response.status ) {
-
-                try {
-                    const config = {
-                        headers: {
-                        'Content-Type': 'application/json'
-                        }
-                    };
-
-                    const newtitle = title.trim();
-
-                    const formData = {
-                        user,
-                        newtitle,
-                        text,
-                        files     
-                    };
-
-                    console.log(formData)
-
-                    const res = await axios.put(`/api/markdown/edit/${markdown._id}`, formData, config);
-                    console.log(res)
-
-                    Router.push('/community/dashboard');
-
-                } catch (error) {
-                    console.error(error)
+            var data = new FormData();
+            for (const file of files){
+                data.append('newfileupload', file);                
+            }            
+                    
+            const response = await axios.post( '/api/uploadFile/upload', data, {
+                headers: {
+                    'accept': 'application/json',
+                    'Accept-Language': 'en-US,en;q=0.8',
+                    'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
                 }
-            }
-        }        
-    }
+            })
+            // console.log(response)
+            // console.log(response.data.image[0])
 
+            for (var i=0; i<files.length; i++) {          
+                this.state.files[i].s3path = response.data.image[i]
+                this.state.files[i].originalname = response.data.originalname[i]
+
+            }
+            
+
+        
+            const config = {
+                headers: {
+                'Content-Type': 'application/json',
+                'x-auth-token': this.props.token
+                }
+            };
+
+            const newtitle = title.trim();
+
+            const formData = {
+                newtitle,
+                text,
+                files     
+            };
+
+            // console.log(formData)
+
+            const res = await axios.put(`/api/markdown/edit/${markdown._id}`, formData, config);
+            // console.log(res)
+
+            toaster.success('Article edit successful')
+
+            Router.push('/community/dashboard');
+
+        } catch (error) {
+            console.error(error)
+        }       
+    }     
+        
 
     async setFiles(newFiles) {
         const { files, previewImage, urlMap } = this.state
+        // console.log(newFiles)
 
-        this.setState({ files: newFiles })      
+        if (newFiles[0].size <= 20000000) {
+
+            this.setState({ files: newFiles })   
     
-        if (!previewImage) {
-          const preview = files.concat(newFiles).find(f =>
-            f.name.toLowerCase().endsWith('.png') ||
-            f.name.toLowerCase().endsWith('.jpg') ||
-            f.name.toLowerCase().endsWith('.jpeg') ||
-            f.name.toLowerCase().endsWith('.git') ||
-            f.name.toLowerCase().endsWith('.svg')
-          )
-    
-          if (preview) {
-            preview.url = window.URL.createObjectURL(preview)
-            this.setState({ previewImage: preview })
-          }
+            if (!previewImage) {
+            const preview = files.concat(newFiles).find(f =>
+                f.name.toLowerCase().endsWith('.png') ||
+                f.name.toLowerCase().endsWith('.jpg') ||
+                f.name.toLowerCase().endsWith('.jpeg') ||
+                f.name.toLowerCase().endsWith('.git') ||
+                f.name.toLowerCase().endsWith('.svg')
+            )
+        
+            if (preview) {
+                preview.url = window.URL.createObjectURL(preview)
+                this.setState({ previewImage: preview })
+            }
+            }
+        
+            const newBlobMap = Object.assign({}, urlMap)
+            newFiles.forEach(file => {
+            newBlobMap[file.name] = window.URL.createObjectURL(file)
+            })
+        
+            this.setState({ urlMap: newBlobMap })
+
+        } else {
+            toaster.warning("File size is too large. Maximum file size is 20MB");
         }
-    
-        const newBlobMap = Object.assign({}, urlMap)
-        newFiles.forEach(file => {
-          newBlobMap[file.name] = window.URL.createObjectURL(file)
-        })
-    
-        this.setState({ urlMap: newBlobMap })
     }
  
 
@@ -188,77 +177,70 @@ class create extends Component {
 
     render() {
 
-        const { user} = this.props
+        const { user, ua } = this.props
         const { title, text, urlMap, files, isBusy } = this.state       
 
 
         return (
             <div>
-                <Pane height='60px'>
-                    <NewNav user={user}/>
+                <Pane>
+                    <NewNav user={user} ua={ua}/> 
+                </Pane>   
+                <Pane
+                    background="white"
+                    padding={16}
+                    borderRadius={3}
+                    border
+                >    
+                    <TextInput
+                        height={38}
+                        border="1px solid #E4E7EB!important"
+                        boxShadow="none!important"
+                        width="100%"
+                        type="text"
+                        placeholder='Title'
+                        marginBottom={10}
+                        autoComplete="off"
+                        name='title'
+                        value={title}
+                        onChange={e => this.onChange(e)}
+                    />                    
+                    <Pane marginTop={16}>
+                        <MarkdownEditor
+                            setText={(newText) => this.setText(newText)}
+                            setFiles={(newFiles) => this.setFiles(newFiles)}
+                            placeholder='Write something!'
+                            uploadsAllowed={true}
+                            allowPreview={true}
+                            prependFilesToPreview
+                            urlMap={urlMap}
+                            text={text}
+                            files={files}
+                            height={500}
+                        />
+                    </Pane>    
                 </Pane>
-                <div className='layout'>
-                    <div className='teams'>
-                        <Fragment>    
-                            <Pane
-                                background="white"
-                                padding={16}
-                                borderRadius={3}
-                                border
-                            >    
-                                <TextInput
-                                    height={38}
-                                    border="1px solid #E4E7EB!important"
-                                    boxShadow="none!important"
-                                    width="100%"
-                                    type="text"
-                                    placeholder='Title'
-                                    marginBottom={10}
-                                    autoComplete="off"
-                                    name='title'
-                                    value={title}
-                                    onChange={e => this.onChange(e)}
-                                />                    
-                                <Pane marginTop={16}>
-                                    <MarkdownEditor
-                                        setText={(newText) => this.setText(newText)}
-                                        setFiles={(newFiles) => this.setFiles(newFiles)}
-                                        placeholder='Write something!'
-                                        uploadsAllowed={true}
-                                        allowPreview={true}
-                                        prependFilesToPreview
-                                        urlMap={urlMap}
-                                        text={text}
-                                        files={files}
-                                        height={500}
-                                    />
-                                </Pane>    
-                            </Pane>
-                            <Pane
-                                background="white"
-                                padding={16}
-                                borderRadius={3}
-                                border
-                            >
-                                <Pane display="flex">
-                                    <Pane flex={1} />
-                                    <Button
-                                        marginLeft={8}
-                                        appearance={"primary"}
-                                        intent="success"
-                                        iconAfter="arrow-right"
-                                        isLoading={isBusy}
-                                        onClick={() => this.editMarkdown()}
-                                    >
-                                        Complete
-                                    </Button>
-                                </Pane>
-                            </Pane>
+                <Pane
+                    background="white"
+                    padding={16}
+                    borderRadius={3}
+                    border
+                >
+                    <Pane display="flex">
+                        <Pane flex={1} />
+                        <Button
+                            marginLeft={8}
+                            appearance={"primary"}
+                            intent="success"
+                            iconAfter="arrow-right"
+                            isLoading={isBusy}
+                            onClick={() => this.editMarkdown()}
+                        >
+                            Edit
+                        </Button>
+                    </Pane>
+                </Pane>
 
-                        </Fragment>
-                        
-                    </div>
-                </div>
             </div>
             
         )

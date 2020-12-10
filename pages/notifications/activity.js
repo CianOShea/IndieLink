@@ -2,20 +2,19 @@
 
 import React, { Component, Fragment } from 'react'
 import NewNav from '../../components/NewNav'
-import { Textarea, TextInput, Button, toaster, Pane, Icon, Switch, Avatar, Heading } from 'evergreen-ui'
+import { SideSheet, TextInput, Button, toaster, Pane, Icon, Switch, Avatar, Heading } from 'evergreen-ui'
 import { withAuth } from '../../components/withAuth'
+import Link from 'next/link'
+
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faEllipsisV } from '@fortawesome/free-solid-svg-icons'
+import {UserAgentProvider, UserAgent} from '@quentin-sommer/react-useragent'
 
 class activity extends Component {
 
-    static async getInitialProps (ctx, user, posts, userfiles, profiles, profile, teams, userteams) {
+    static async getInitialProps ( query, user ) {
         
-        const res = ctx.res        
-        if (!posts) { posts = null }
-        if (!userfiles) { userfiles = null }
-        if (!profiles) { profiles = null }  
-        if (!profile) { profile = null }
-        if (!teams) { teams = null }
-        if (!userteams) { userteams = null } 
+        const res = query.res                
 
         if (!user) {
             if(res) { // if on server
@@ -26,9 +25,9 @@ class activity extends Component {
             } else { // on client
                 Router.push('/')                
             }
-            return { posts, userfiles, profiles, profile, teams, userteams }
+            return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, user }
         } else {
-            return { posts, userfiles, profiles, profile, teams, userteams }
+            return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, user }
         }        
     };
 
@@ -37,14 +36,8 @@ class activity extends Component {
 
         this.state = {
             user: this.props.user,
-            checked: '',
-            teams: this.props.teams,
-            userteams: this.props.userteams,
-            currentprofile: this.props.profile,
-            messagingTab: true,
-            teamsTab: false,
-            jobsTab: false,
-            activityTab: false,
+            ua: this.props.ua,
+            notificationmenu: false
         }
     };
 
@@ -53,182 +46,290 @@ class activity extends Component {
         this.setState({ [e.target.name]: e.target.value })
     }
 
-    async onCheck(e) {
-        console.log(e)
-    }
 
     render() {
-        const { user } = this.props
-        const { userteams, currentprofile,  messagingTab, teamsTab, jobsTab, activityTab } = this.state
+        const { user, ua } = this.props
+        const { notificationmenu } = this.state
 
         return (
-            <div>
+            <UserAgentProvider ua={ua}>
+                <UserAgent computer tablet>
+                    <div>
 
-                <Pane height='60px'>
-                    <NewNav user={user}/>
-                </Pane> 
-                <div className='mainscroll'>
-                    <Pane
-                        width='100vh'
-                        elevation={2}
-                        alignItems="center"
-                        justifyContent="center"
-                        flexDirection="row"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        textAlign="center"
-                        paddingLeft={20}
-                        paddingRight={20}
-                        paddingBottom={20}
-                    >
-                        <Pane width='100%'>
-
-                            <Pane borderBottom>
-                                <Heading size={900} marginTop="default" marginBottom={50}>Activity</Heading>   
-                            </Pane>                        
-
-                            
-                            <Pane marginBottom={30}>
-                                <Heading size={500} marginTop="default" marginBottom={10}>First Name</Heading> 
-                                <TextInput
-                                    type='text'
-                                    placeholder='Team Name'
-                                    onChange={e => this.onChange(e)}
-                                />    
-                            </Pane>
-
-                            <Pane marginBottom={30}>
-                                <Heading size={500} marginTop="default" marginBottom={10}>Last Name</Heading> 
-                                <TextInput
-                                    type='text'
-                                    placeholder='Team Name'
-                                    onChange={e => this.onChange(e)}
-                                />    
-                            </Pane>
-
-                            <Pane marginBottom={30}>
-                                <Heading size={500} marginTop="default" marginBottom={10}>Game Engine</Heading> 
-                                <TextInput
-                                    type='text'
-                                    placeholder='Game Engine'
-                                    onChange={e => this.onChange(e)}
-                                />    
-                            </Pane>
-
-                            <Pane marginBottom={30}>
-                                <Heading size={500} marginTop="default" marginBottom={10}>Add Roles</Heading> 
-                                <Button marginBottom={10} onClick={() => console.log('Add')} appearance="primary" intent="success">Add Team Role</Button>                              
-                            </Pane>                    
-                            
-                            <Pane marginBottom={20}>
-                                <Heading size={500} marginBottom={10}>Team Description</Heading> 
-                                <Textarea
-                                    placeholder='Describe your idea and team your looking for...'
-                                    onChange={e => this.onChange(e)}
-                                    height={200}
-                                />
-                            </Pane>                        
-
-                            <Button width={200} height={40} justifyContent='center'  onClick={(e) => console.log('Submit')} type="submit" appearance="primary">Create Team +</Button>
-
-                        </Pane>                    
-                    </Pane>          
-                </div>
-
-                <div className='sidebar'>
-                    <Pane
-                        alignItems="center"
-                        justifyContent="center"
-                        flexDirection="row"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        paddingBottom={20}
-                        paddingTop={20}
-                        paddingRight={10}
-                        paddingLeft={10}
-                        textAlign="center"
-                        borderBottom                        
-                    >
                         <Pane>
-                            <Avatar
+                            <NewNav user={user} ua={ua}/>
+                        </Pane> 
+                        <div className='mainscroll'>
+                            <Pane
+                                width='100vh'
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="row"
+                                display="flex"
                                 marginLeft="auto"
                                 marginRight="auto"
-                                isSolid
-                                size={80}
-                                marginBottom={10}
-                                name="cian"
-                                alt="cian o shea"
-                                src={user.avatar}
-                            />
-                            <Heading
-                                fontSize={20}
-                                lineHeight=" 1.2em"
-                                marginBottom={10}
                                 textAlign="center"
+                                paddingLeft={20}
+                                paddingRight={20}
+                                paddingBottom={20}
                             >
-                            {user.name}
-                            </Heading>
-                        </Pane>                                        
-                    </Pane>
-                    <Pane 
-                        alignItems="center"
-                        justifyContent="center"
-                        flexDirection="column"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        paddingBottom={10}
-                        paddingTop={20}
-                        paddingRight={10}
-                        paddingLeft={10}
-                        textAlign="center"
-                        borderBottom  
-                        >
-             
-                            <a className="sc-1bokkpb-1 blQUzd" href="messaging">
-                                <span type="footnote" className="myaccount-sidebar">Messages</span>
-                            </a>
-                                                                                 
-                            <a className="sc-1bokkpb-1 blQUzd" href="teams">
-                                <span type="footnote" className="myaccount-sidebar">Teams</span>
-                            </a>
-                            <a className="sc-1bokkpb-1 blQUzd" href="jobs">
-                                <span type="footnote" className="myaccount-sidebar">Jobs</span>
-                            </a>
-                            <Pane>
-                                <Icon icon='chevron-left' color="info"/>
-                                <a className="sc-1bokkpb-1 blQUzd" href="activity">
-                                    <span type="footnote" className="myaccount-sidebar">Activity</span>
-                                </a>
-                            </Pane> 
-                    </Pane>
-                    <Pane 
-                        alignItems="center"
-                        justifyContent="center"
-                        flexDirection="column"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        paddingBottom={10}
-                        paddingTop={20}
-                        paddingRight={10}
-                        paddingLeft={10}
-                        textAlign="center"
-                        borderBottom  
-                        >
-                            <a className="sc-1bokkpb-1 blQUzd" href="/settings/profile">
-                                <span type="footnote" className="myaccount-sidebar">Profile</span>
-                            </a>                                                     
-                            <a className="sc-1bokkpb-1 blQUzd" href="/settings/social">
-                                <span type="footnote" className="myaccount-sidebar">Social</span>
-                            </a>
-                    </Pane>
+                                <Pane width='100%'>
+                                    
+                                    <Heading size={700} marginTop="default" marginBottom={50}>This feature is not available yet.</Heading>        
 
-                </div>                       
-                    
-            </div>
+                                </Pane>                    
+                            </Pane>        
+                        </div>
+
+                        <div className='sidebar'>
+                            <Pane
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="row"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={20}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom                        
+                            >
+                                <Pane>
+                                    <Avatar
+                                        marginLeft="auto"
+                                        marginRight="auto"
+                                        isSolid
+                                        size={80}
+                                        marginBottom={10}
+                                        name={user.username}
+                                        alt={user.username}
+                                        src={user.avatar}
+                                    />
+                                    <Heading
+                                        fontSize={20}
+                                        lineHeight=" 1.2em"
+                                        marginBottom={10}
+                                        textAlign="center"
+                                    >
+                                    {user.username}
+                                    </Heading>
+                                </Pane>                                        
+                            </Pane>
+                            <Pane 
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="column"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={10}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom  
+                                >                         
+                                    <Link href="teams">                               
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Teams</span>
+                                        </a>
+                                    </Link>
+                                    <Link href="jobs">
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Jobs</span>
+                                        </a>
+                                    </Link>
+                                    <Link href="messaging">
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Messages</span>
+                                        </a>
+                                    </Link>
+                                    <Pane>
+                                        <Icon icon='chevron-left' color="info"/>
+                                        <Link href="activity">
+                                            <a className="navitem">
+                                                <span type="footnote" className="myaccount-sidebar">Activity</span>
+                                            </a>
+                                        </Link>
+                                    </Pane> 
+                            </Pane>
+                            <Pane 
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="column"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={10}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom  
+                                >
+                                    <Link href="/settings/profile">
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Profile</span>
+                                        </a> 
+                                    </Link>     
+                                    <Link href="/settings/social">                                               
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Social</span>
+                                        </a>
+                                    </Link>
+                            </Pane>
+
+                        </div>                       
+                            
+                    </div>
+                </UserAgent>
+
+
+                <UserAgent mobile>
+                    <div>
+                        <Pane>
+                            <NewNav user={user} ua={ua}/>
+                        </Pane> 
+
+                        <Pane textAlign='right' marginRight={30} marginTop={10}>
+                            <button mode="default" className="nav-auth-button" onClick={() => this.setState({ notificationmenu: true })}>                                                                                               
+                                <a className="navitem">
+                                    <FontAwesomeIcon size='lg' icon={faEllipsisV} />
+                                </a>                                                    
+                            </button>                          
+                        </Pane>
+
+                        <Pane
+                            alignItems="center"
+                            justifyContent="center"
+                            flexDirection="row"
+                            display="flex"
+                            marginLeft="auto"
+                            marginRight="auto"
+                            textAlign="center"
+                            paddingLeft={20}
+                            paddingRight={20}
+                            paddingBottom={20}
+                        >
+                            <Pane width='100%'>
+                                
+                                <Heading size={700} marginBottom={50}>This feature is not available yet.</Heading>        
+
+                            </Pane>                    
+                        </Pane>                       
+                            
+                    </div>
+
+                    <SideSheet
+                            width={300}
+                            isShown={notificationmenu}
+                            onCloseComplete={() => this.setState({ notificationmenu: false })}
+                        >
+                            <Pane
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="row"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={20}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom                        
+                            >
+                                <Pane>
+                                    <Avatar
+                                        marginLeft="auto"
+                                        marginRight="auto"
+                                        isSolid
+                                        size={80}
+                                        marginBottom={10}
+                                        name={user.username}
+                                        alt={user.username}
+                                        src={user.avatar}
+                                    />
+                                    <Heading
+                                        fontSize={20}
+                                        lineHeight=" 1.2em"
+                                        marginBottom={10}
+                                        textAlign="center"
+                                    >
+                                    {user.username}
+                                    </Heading>
+                                </Pane>                                        
+                            </Pane>
+                            <Pane 
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="column"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={10}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom  
+                                >                                    
+                                    <Link href="teams">                               
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Teams</span>
+                                        </a>
+                                    </Link>
+                                    <Link href="jobs">
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Jobs</span>
+                                        </a>
+                                    </Link>
+                                    <Link href="messaging">
+                                        <a className="navitem">
+                                            <span type="footnote" className="myaccount-sidebar">Messages</span>
+                                        </a>
+                                    </Link>
+                                    <Pane>
+                                        <Icon icon='chevron-left' color="info"/>
+                                        <Link href="activity">
+                                            <a className="navitem">
+                                                <span type="footnote" className="myaccount-sidebar">Activity</span>
+                                            </a>
+                                        </Link>
+                                    </Pane> 
+                            </Pane>
+                            <Pane 
+                                alignItems="center"
+                                justifyContent="center"
+                                flexDirection="column"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingBottom={10}
+                                paddingTop={20}
+                                paddingRight={10}
+                                paddingLeft={10}
+                                textAlign="center"
+                                borderBottom  
+                                >
+                                    <Link href="/settings/profile">
+                                        <a className="navitem" >
+                                            <span type="footnote" className="myaccount-sidebar">Profile</span>
+                                        </a>       
+                                    </Link>   
+                                    <Link href="/settings/social">                                           
+                                        <a className="navitem" >
+                                            <span type="footnote" className="myaccount-sidebar">Social</span>
+                                        </a>
+                                    </Link>  
+                            </Pane>
+
+                        </SideSheet> 
+                </UserAgent>
+
+            </UserAgentProvider>
         )
     }
 }

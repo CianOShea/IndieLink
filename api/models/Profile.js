@@ -21,29 +21,17 @@ const ProfileSchema = new Schema({
   avatar: {
     type: String
   },
-  social: {
-    youtube: {
+  social: [{  
+    title: {
       type: String
     },
-    twitter: {
+    url: {
       type: String
     },
-    facebook: {
-      type: String
-    },
-    linkedin: {
-      type: String
-    },
-    instagram: {
-      type: String
-    },
-    website: {
-      type: String
-    },
-    github: {
+    link: {
       type: String
     }
-  },
+  }],
   location: {
     type: String
   },
@@ -80,17 +68,20 @@ const ProfileSchema = new Schema({
       },
       filetype: {
         type: String,
-        //required: true
       },
       description: {
         type: String
       },
-      name: {
-        type: String
+      username: {
+        type: String,
+        required: true
       },
       avatar: {
         type: String
       },
+      tags: [{
+        type: String
+      }],
       likes: [
         {
           user: {
@@ -117,8 +108,9 @@ const ProfileSchema = new Schema({
             type: String,
             required: true
           },
-          name: {
-            type: String
+          username: {
+            type: String,
+            required: true
           },
           avatar: {
             type: String
@@ -132,9 +124,6 @@ const ProfileSchema = new Schema({
           }
         }
       ],
-      tags: [{
-        type: String
-      }],
       date: {
         type: Date,
         default: Date.now

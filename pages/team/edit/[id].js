@@ -3,11 +3,13 @@
 import React, { Component, Fragment } from 'react'
 import NewNav from '../../../components/NewNav'
 import Router from 'next/router'
+import Link from 'next/link'
 import axios from 'axios'
-import { Textarea, TextInput, Text, Button, toaster, Pane, Heading, Table  } from 'evergreen-ui'
+import { Textarea, TextInput, IconButton, Button, toaster, Pane, Heading, Table  } from 'evergreen-ui'
 import { withAuth } from '../../../components/withAuth'
 import Select from 'react-select'
 import MarkdownEditor from '../../../components/create-study/markdown-editor'
+import Markdown from '../../../components/markdown'
 
 import getConfig from 'next/config'
 const { publicRuntimeConfig } = getConfig()
@@ -20,40 +22,66 @@ const colourStyles = {control: styles => ({ ...styles, backgroundColor: 'white',
 
 class teamedit extends Component {
 
-    static async getInitialProps ( {query: {teamID, res}}, user, posts, userfiles, profiles, profile, teams) {
+    static async getInitialProps ( query, user ) {
+        
+        const token = axios.defaults.headers.common['x-auth-token']
+
+        const teamID = query.query.id
 
         const getTeam = await axios.get(`${publicRuntimeConfig.SERVER_URL}/api/team/${teamID}`);        
         const currentteam = getTeam.data
 
-        let mapOpenRoles = []
-        //console.log(currentteam.openRoles)
-        const newOpenRoles = currentteam.openRoles.map(mapOpenRole => {
-            mapOpenRoles.push(mapOpenRole.title, mapOpenRole.description)
-            return mapOpenRoles
+        let newOpenRoles = []
+        currentteam.openRoles.forEach(mapOpenRole => {
+           newOpenRoles.push([mapOpenRole.title, mapOpenRole.description])           
+            return newOpenRoles
         })
-        //console.log(newOpenRoles)
+        
 
         var newbm = {}
 
         const newBlobMap = Object.assign({}, newbm)
         currentteam.teamfiles.forEach(file => {
           newBlobMap[file.name] = 'https://indielink-uploads.s3-eu-west-1.amazonaws.com/' + file.s3path
-        })     
-
+        })   
         
+        if (user) {
+            if(currentteam.members.filter(member => member.user.toString() === user._id).length > 0)
+            {
+                var isMember = true
+            } else {
+                var isMember = false
+            }      
+        }  else {
+            var isMember = false
+        }
 
-        return {teamID, currentteam, user, newOpenRoles, newBlobMap}
+        if (!user || !isMember) {
+            if (query.res) {
+                query.res.writeHead(301, {
+                  Location: '/'
+                });
+                query.res.end();
+              }            
+              return {};
+        } else {
+            return { ua: query.req ? query.req.headers['user-agent'] : navigator.userAgent, token, teamID, currentteam, user, newOpenRoles, newBlobMap, isMember}
+        }       
+        
       };
   
       constructor(props) {
           super(props)
   
           this.state = {
+            token: this.props.token,
+            ua: this.props.ua,
             user: this.props.user,
             currentteam: this.props.currentteam,
             teamname: this.props.currentteam.teamname,
             gametype: this.props.currentteam.gametype,
             description: this.props.currentteam.description,
+            social: this.props.currentteam.social,
             urlMap: this.props.newBlobMap,
             files: [],
             members: this.props.currentteam.members,
@@ -69,7 +97,14 @@ class teamedit extends Component {
             roledescription: '',
             selectedOption: '',
             openRoles: this.props.currentteam.openRoles,
-            newOpenRoles: this.props.newOpenRoles
+            newOpenRoles: this.props.newOpenRoles,
+            addlink: false,
+            linktitle: '',
+            linkurl: '',
+            editlink: false,
+            currentedit: '',
+            editlinktitle: '',
+            editlinkurl: ''
           }
       };
 
@@ -82,39 +117,12 @@ class teamedit extends Component {
 
         e.preventDefault();
 
-        const { currentteam, teamname, description, engine, newOpenRoles, files, gametype } = this.state
+        const { currentteam, teamname, description, engine, newOpenRoles, files, gametype, social } = this.state
         
-        if (files.length > 5) {
-            alert('Maximum of 5 files when creating a team')            
-            return      
-        }  
-
         var data = new FormData();
-        if(files.length == 1) {
-            data.append('newfileupload', files[0]);            
-        }
-        if(files.length == 2) {
-            data.append('newfileupload', files[0]);
-            data.append('newfileupload', files[1]);          
-        }
-        if(files.length == 3) {
-            data.append('newfileupload', files[0]);
-            data.append('newfileupload', files[1]);
-            data.append('newfileupload', files[2]);            
-        }
-        if(files.length == 4) {
-            data.append('newfileupload', files[0]);
-            data.append('newfileupload', files[1]);
-            data.append('newfileupload', files[2]);
-            data.append('newfileupload', files[3]);             
-        }
-        if(files.length == 5) {
-            data.append('newfileupload', files[0]);
-            data.append('newfileupload', files[1]);
-            data.append('newfileupload', files[2]);
-            data.append('newfileupload', files[3]);
-            data.append('newfileupload', files[4]);            
-        }               
+        for (const file of files){
+            data.append('newfileupload', file);                
+        }              
                 
         const response = await axios.post( '/api/uploadFile/upload', data, {
             headers: {
@@ -123,22 +131,23 @@ class teamedit extends Component {
                 'Content-Type': `multipart/form-data; boundary=${data._boundary}`,
             }
         })
-        console.log(response)
-        console.log(response.data.image[0])
+        // console.log(response)
+        // console.log(response.data.image[0])
 
         for (var i=0; i<files.length; i++) {          
             this.state.files[i].s3path = response.data.image[i]
             this.state.files[i].originalname = response.data.originalname[i]
 
         }
-        console.log(files)
+        // console.log(files)
 
         if (response) {
             if ( 200 === response.status ) {
                 try {
                     const config = {
                         headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'x-auth-token': this.props.token
                         }
                     };
                     const formData = {
@@ -147,15 +156,18 @@ class teamedit extends Component {
                         description,
                         engine,
                         files,
-                        newOpenRoles                
+                        newOpenRoles,
+                        social              
                     };
         
-                    console.log(formData)
+                    // console.log(formData)
         
                     const res = await axios.put(`/api/team/edit/${currentteam._id}`, formData, config);
-                    console.log(res)    
+                    // console.log(res)   
+                    
+                    toaster.success('Edit successful')
         
-                    Router.push('/teams');
+                    Router.push(`/team/${currentteam._id}`);
                 } catch (error) {
                     console.error(error.response.data); 
                     toaster.warning(error.response.data.msg); 
@@ -172,15 +184,10 @@ class teamedit extends Component {
 
         try {
     
-            console.log(selectedOption)
-            console.log(roledescription)
-            console.log(roletitle)
 
             this.setState(state => {
                 const newRoles = state.newOpenRoles.push([roletitle, roledescription])
             })
-
-            console.log(newOpenRoles)
 
             this.setState({ 
                 addrole: false,
@@ -216,32 +223,38 @@ class teamedit extends Component {
       };
 
 
-      async setFiles(newFiles) {
-        const { files, previewImage, urlMap } = this.state
+    async setFiles(newFiles) {
+        const { files, previewImage, urlMap } = this.state        
 
-        this.setState({ files: newFiles })      
+        if (newFiles[0].size <= 20000000) {
+
+            this.setState({ files: newFiles })   
     
-        if (!previewImage) {
-          const preview = files.concat(newFiles).find(f =>
-            f.name.toLowerCase().endsWith('.png') ||
-            f.name.toLowerCase().endsWith('.jpg') ||
-            f.name.toLowerCase().endsWith('.jpeg') ||
-            f.name.toLowerCase().endsWith('.git') ||
-            f.name.toLowerCase().endsWith('.svg')
-          )
-    
-          if (preview) {
-            preview.url = window.URL.createObjectURL(preview)
-            this.setState({ previewImage: preview })
-          }
+            if (!previewImage) {
+            const preview = files.concat(newFiles).find(f =>
+                f.name.toLowerCase().endsWith('.png') ||
+                f.name.toLowerCase().endsWith('.jpg') ||
+                f.name.toLowerCase().endsWith('.jpeg') ||
+                f.name.toLowerCase().endsWith('.git') ||
+                f.name.toLowerCase().endsWith('.svg')
+            )
+        
+            if (preview) {
+                preview.url = window.URL.createObjectURL(preview)
+                this.setState({ previewImage: preview })
+            }
+            }
+        
+            const newBlobMap = Object.assign({}, urlMap)
+            newFiles.forEach(file => {
+            newBlobMap[file.name] = window.URL.createObjectURL(file)
+            })
+        
+            this.setState({ urlMap: newBlobMap })
+
+        } else {
+            toaster.warning("File size is too large. Maximum file size is 20MB");
         }
-    
-        const newBlobMap = Object.assign({}, urlMap)
-        newFiles.forEach(file => {
-          newBlobMap[file.name] = window.URL.createObjectURL(file)
-        })
-    
-        this.setState({ urlMap: newBlobMap })
     }
  
 
@@ -249,20 +262,109 @@ class teamedit extends Component {
         this.setState({ description: newText})        
     }
 
+    async addLink(e) {
+        e.preventDefault()
+
+        const {  currentprofilelinks, linktitle, linkurl } = this.state
+
+        if (linktitle == '' || linkurl == '') {
+            alert('Please make sure the links are not left blank')
+        }
+
+        const link = ('[' + linktitle + ']' + '(' + linkurl + ')')
+        
+
+        try {
+            const config = {
+                headers: {
+                'Content-Type': 'application/json',
+                'x-auth-token': this.props.token
+                }
+            };               
+
+            const formData = { link, linktitle, linkurl };
+
+            // console.log(formData)
+
+            const res = await axios.put('/api/profile/social', formData, config);
+            // console.log(res)           
+
+
+            this.setState({ 
+                addlink: false,
+                linktitle: '',
+                linkurl: ''               
+            })
+
+        } catch (error) {
+            console.error(error)
+        }        
+    }
+
+    async addLink(e) {
+        e.preventDefault()
+
+        const {  linktitle, linkurl } = this.state
+
+        if (linktitle == '' || linkurl == '') {
+            alert('Please make sure the links are not left blank')
+        }
+
+        const link = ('[' + linktitle + ']' + '(' + linkurl + ')')
+        
+
+        try {           
+            
+            this.setState(state => {
+                state.social.unshift({
+                    title: linktitle,
+                    url: linkurl,
+                    link: link,
+                })
+            })
+
+            this.setState({ 
+                addlink: false,
+                linktitle: '',
+                linkurl: ''               
+            })
+
+        } catch (error) {
+            console.error(error)
+        }        
+    }
+
+
+    async deleteLink(index) {
+
+        const { social } = this.state
+
+        try {
+
+            social.splice(index, 1)
+
+            this.setState({ 
+                social: social
+            }, () => console.log(this.state.social))
+
+        } catch (error) {
+            console.error(error)
+        }        
+    }
+
 
     render() {
-        const { user, currentteam } = this.props
-        const { acceptedfiles, teams, teamname, description,  mainimage, teamfiles, addrole, selectedOption, roletitle, roledescription, openRoles, engine, newOpenRoles, urlMap, gametype, files } = this.state
+        const { user, ua, currentteam } = this.props
+        const { acceptedfiles, social, teamname, description,  mainimage, teamfiles, addrole, selectedOption, roletitle, roledescription, openRoles, engine, newOpenRoles, urlMap, gametype, files, linktitle, linkurl, addlink, editlink, currentedit, editlinktitle, editlinkurl } = this.state
 
-        //console.log(currentteam)
         return (
             <div>   
-                <Pane height='60px'>
-                    <NewNav user={user}/>
+                <Pane>
+                    <NewNav user={user} ua={ua}/>
                 </Pane>
 
                 <Pane
-                    width='100vh'
+                    maxWidth='100vh'
                     elevation={2}
                     alignItems="center"
                     justifyContent="center"
@@ -315,6 +417,104 @@ class teamedit extends Component {
                             />    
                         </Pane>
 
+                        <Pane
+                            alignItems="center"
+                            justifyContent="center"
+                            flexDirection="column"
+                            display="flex"
+                            marginBottom={20}
+                        >
+                            <Heading size={600} marginTop="default" textAlign="center" marginBottom={20}>Add Social Links</Heading>
+                            <Button onClick={() => this.setState({ addlink: true, editlink: false })} iconBefore="plus" appearance="primary" intent="warning">Add</Button>
+
+                            { social.length > 0 &&
+                                <Pane textAlign='center' justifyContent="center" marginTop={20}>
+                                    <div className='settings-profile'>
+                                        <Pane alignItems="center" justifyContent="center" flexDirection="column" display="flex">
+                                            <Heading size={300} marginTop="default" textAlign="center" marginBottom={10}>Link Title</Heading>
+                                            <ul className='FileNames'>
+                                                {social.map((link, index) => (
+                                                    <Pane key={index} link={link}
+                                                        alignItems="center"
+                                                        justifyContent="center"
+                                                        flexDirection="row"
+                                                        display="flex"
+                                                        textAlign="center"
+                                                    >
+                                                        <TextInput
+                                                            width="200px"
+                                                            marginRight={10}
+                                                            value={link.title}
+                                                            readOnly
+                                                        />                                                                                                
+                                                    </Pane>                                                
+                                                ))}                    
+                                            </ul>  
+                                        </Pane>
+                                    </div>
+                                    <div className='settings-profile'>
+                                        <Pane alignItems="center" justifyContent="center" flexDirection="column" display="flex">
+                                            <Heading size={300} marginTop="default" textAlign="center" marginBottom={10}>Link URL</Heading>
+                                            <ul className='FileNames'>
+                                                {social.map((link, index) => (
+                                                    <Pane key={index} link={link}
+                                                        alignItems="center"
+                                                        justifyContent="center"
+                                                        flexDirection="row"
+                                                        display="flex"
+                                                        textAlign="center"
+                                                    >
+                                                        <TextInput
+                                                            width="200px"
+                                                            marginRight={10}
+                                                            value={link.url}
+                                                            readOnly
+                                                        />                
+                                                        <IconButton icon='cross' onClick={() => this.deleteLink(index)} appearance="minimal" intent="danger"/>                                                                                
+                                                    </Pane>                                                
+                                                ))}                    
+                                            </ul>  
+                                        </Pane>
+                                    </div>
+                                </Pane>   
+                            } 
+                            
+                        </Pane> 
+
+                        {
+                            addlink &&
+                            <Pane marginTop={20} marginBottom={50}>
+                                <div className='settings-profile'>
+                                    <Pane alignItems="center" justifyContent="center" flexDirection="column" display="flex">
+                                        <Heading size={300} marginTop="default" textAlign="center" marginBottom={10}>Link Title</Heading>
+                                        <TextInput
+                                            placeholder='IndieLink'
+                                            name='linktitle'
+                                            value={linktitle}
+                                            onChange={e => this.onChange(e)}
+                                        />
+                                    </Pane>
+                                </div>
+                                <div className='settings-profile'>
+                                    <Pane alignItems="center" justifyContent="center" flexDirection="column" display="flex">
+                                        <Heading size={300} marginTop="default" textAlign="center" marginBottom={10}>Link URL</Heading>
+                                        <TextInput
+                                            placeholder='https://www.indielink.io/'
+                                            name='linkurl'
+                                            value={linkurl}
+                                            onChange={e => this.onChange(e)}
+                                        />
+                                    </Pane>
+                                </div>
+                                <div className='settings-profile1'>                            
+                                    <Pane marginBottom={20} alignItems="center" justifyContent="center" flexDirection="row" display="flex">
+                                        <Button marginTop={20} onClick={(e) => this.addLink(e)} appearance="primary">Submit</Button>
+                                        <Button marginTop={20} onClick={() => this.setState({ addlink: false, linktitle: '', linkurl: '' })} appearance="minimal" intent="danger">Cancel</Button>
+                                    </Pane>  
+                                </div>    
+                            </Pane>                                
+                        }
+
                         <Pane marginBottom={30}>
                             <Heading size={500} marginTop="default" marginBottom={10}>Add Roles</Heading> 
                             <Button marginBottom={10} onClick={() => this.setState({ addrole: true })} appearance="primary" intent="success">Add Team Role</Button>
@@ -362,7 +562,7 @@ class teamedit extends Component {
                                     <Table.TextHeaderCell>
                                     </Table.TextHeaderCell>
                                 </Table.Head>
-                                <Table.Body height={140}>                        
+                                <Table.Body height="auto">                        
                                     {newOpenRoles.map((openrole, index) => (
                                     <Table.Row height={100} key={index} openrole={openrole}>
                                         <Table.TextCell>{openrole[0]}</Table.TextCell>
@@ -374,7 +574,7 @@ class teamedit extends Component {
                                             />
                                         </Table.TextCell>
                                         <Table.TextCell>
-                                                <Button onClick={() => this.removeRole(index)} appearance="primary" intent="danger">Remove Role</Button>
+                                                <Button width={100} onClick={() => this.removeRole(index)} appearance="primary" intent="danger">Remove Role</Button>
                                         </Table.TextCell>
                                     </Table.Row>
                                     ))}
@@ -404,7 +604,9 @@ class teamedit extends Component {
                         
 
                         <Button width={150} height={30} justifyContent='center'  onClick={(e) => this.onEditTeam(e)} type="submit" appearance="primary">Edit Team</Button>
-                        <Button onClick={() => Router.push('/bbb')} appearance="minimal" intent="danger">Cancel</Button>
+                        <Link href={{ pathname: '/team/[id]', query: { teamID: currentteam._id } } } as={`/team/${currentteam._id}`}>
+                            <Button appearance="minimal" intent="danger">Cancel</Button>
+                        </Link>
 
                     </Pane>                    
                 </Pane>    

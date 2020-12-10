@@ -6,9 +6,6 @@ const MarkdownSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'users'
   },
-  name: {
-    type: String
-  },
   avatar: {
     type: String
   },
@@ -17,6 +14,10 @@ const MarkdownSchema = new Schema({
     required: true
   },
   title: {
+    type: String,
+    required: true
+  },  
+  username: {
     type: String,
     required: true
   },  
@@ -46,8 +47,9 @@ const MarkdownSchema = new Schema({
         type: String,
         required: true
       },
-      name: {
-        type: String
+      username: {
+        type: String,
+        required: true
       },
       avatar: {
         type: String
