@@ -27,3 +27,15 @@ Create a .env file in the main folder and fill in the following Config Variables
 
 In next.config.js, default SERVER_URL value is currently set to `http://localhost:3000` and in server.js the const port is set to 3000.
 This must be changed if port 3000 is not the desired location to run this application.
+
+Fill JWT_SECRET variable with any string value
+
+### Local MongoDB Installation
+In order to have available data in a local database, download MongoDB community edition at https://www.mongodb.com/try/download/community
+
+Connect to `mongodb://localhost` with MongoDB Compass and create a new database (for example 'indielink') with any collection (for example 'markdown')
+
+Then set MONGO_URI env variable to 'mongodb://localhost/yourDatabaseName' (with above name example, set it to `mongodb://localhost/indielink`)
+
+## Launching
+Run `npm run dev`
