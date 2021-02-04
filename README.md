@@ -17,13 +17,13 @@ To get started install node and run:
 For the application to work environment variables need to be set.
 Create a .env file in the main folder and fill in the following Config Variables:
 
-- MONGO_URI = ''
-- JWT_SECRET = ''
-- SERVER_URL = ''
-- S3_BUCKET_NAME = ''
-- GITHUB_USERNAME = ''
-- AWS_ACCESS_KEY_ID = ''
-- AWS_SECRET_ACCESS_KEY = ''
+- SERVER_URL=
+- MONGO_URI=''
+- JWT_SECRET=''
+- S3_BUCKET_NAME=''
+- GITHUB_USERNAME=''
+- AWS_ACCESS_KEY_ID=''
+- AWS_SECRET_ACCESS_KEY=''
 
-In next.config.js SERVER_URL is currently set to 'http://localhost:3000' and in server.js the const port is set to 3000.
+In next.config.js, default SERVER_URL value is currently set to `http://localhost:3000` and in server.js the const port is set to 3000.
 This must be changed if port 3000 is not the desired location to run this application.
