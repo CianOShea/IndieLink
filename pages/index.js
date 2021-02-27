@@ -74,88 +74,250 @@ class index extends Component {
         
         return (
             <UserAgentProvider ua={ua}>
-                <UserAgent computer tablet>     
-                    <Pane>
-                        <NewNav user={user} ua={ua}/>
-                    </Pane>
+                <div>
+                    <UserAgent computer tablet>
+                        <Pane>
+                            <NewNav user={user} ua={ua}/>
+                        </Pane>
 
-                    <Heading padding={10} textAlign='center' size={800} marginTop={10}>What IndieLink can do for independent game developers!</Heading>
+                        <Heading padding={10} textAlign='center' size={800} marginTop={10}>What IndieLink can do for independent game developers!</Heading>
 
-                                        
-                    <Pane marginTop={50} marginBottom={100} textAlign='center' alignItems="center" justifyContent="center">                    
-                        <Pane marginTop={20} marginBottom={50} display="flex" flexDirection='row' textAlign='center' alignItems="center" justifyContent="center">
-                            
-                            <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
-                                <img className="article" src="../static/undraw/portfolio.png" />
-                                <Heading size={600} marginTop="default">Showcase Your Portfolio</Heading>
+
+                        <Pane marginTop={50} marginBottom={100} textAlign='center' alignItems="center" justifyContent="center">
+                            <Pane marginTop={20} marginBottom={50} display="flex" flexDirection='row' textAlign='center' alignItems="center" justifyContent="center">
+
+                                <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                                    <img className="article" src="../static/undraw/portfolio.png" />
+                                    <Heading size={600} marginTop="default">Showcase Your Portfolio</Heading>
+                                </Pane>
+
+                                <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                                    <img className="article" src="../static/undraw/team.png" />
+                                    <Heading size={600} marginTop="default">Create & Join Teams</Heading>
+                                </Pane>
+
+                                <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                                    <img className="article" src="../static/undraw/jobs.png" />
+                                    <Heading size={600} marginTop="default">Job Search</Heading>
+                                </Pane>
+
+                                <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                                    <img className="article" src="../static/undraw/article.png" />
+                                    <Heading size={600} marginTop="default">Write Articles and Devlogs</Heading>
+                                </Pane>
                             </Pane>
 
-                            <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
-                                <img className="article" src="../static/undraw/team.png" />    
-                                <Heading size={600} marginTop="default">Create & Join Teams</Heading>                                   
-                            </Pane>
 
-                            <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
-                                <img className="article" src="../static/undraw/jobs.png" />
-                                <Heading size={600} marginTop="default">Job Search</Heading>
-                            </Pane> 
+                        </Pane>
 
-                            <Pane flex={1} display="flex" flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
-                                <img className="article" src="../static/undraw/article.png" />
-                                <Heading size={600} marginTop="default">Write Articles and Devlogs</Heading>                            
+                        <Heading textAlign='center' size={600} marginTop={10}>Check our <Link href="/about" color="blue"><Heading size={600}>About</Heading></Link> page to find out more</Heading>
+
+                        <Heading textAlign='center' size={600} marginTop={10}>We are also Open Source. Check <Link href="https://github.com/CianOShea/IndieLink" target="_blank" color="blue"><Heading size={600}>here</Heading></Link>  for updates!</Heading>
+
+                        <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Users</Heading>
+
+                        <Pane
+                            alignItems="center"
+                            justifyContent="center"
+                            flexDirection="row"
+                            display="flex"
+                            marginLeft="auto"
+                            marginRight="auto"
+                            paddingRight={10}
+                            paddingLeft={10}
+                            textAlign="center"
+                            marginBottom={50}
+                        >
+                            {
+                                profiles.length > 0 ?
+                                <Fragment>
+                                    <ul>
+                                        {profiles.map(profile => (
+                                            <Pane key={profile._id} profile={profile}
+                                                marginTop={20}
+                                                marginX={10}
+                                                float="left"
+                                                elevation={2}
+                                                hoverElevation={3}
+                                                borderRadius={30}
+                                                display="flex"
+                                                flexDirection="column"
+                                                width={200}
+                                                padding={20}
+                                            >
+
+                                                <Avatar
+                                                    marginLeft="auto"
+                                                    marginRight="auto"
+                                                    isSolid
+                                                    size={100}
+                                                    marginBottom={20}
+                                                    name={profile.username}
+                                                    alt={profile.username}
+                                                    src={profile.avatar}
+                                                />
+
+                                                <div className='cursor'>
+                                                    <Link href={`/${profile.username}`} textDecoration="none">
+                                                        <Heading size={800}>{profile.username}</Heading>
+                                                    </Link>
+                                                </div>
+
+                                                <Pane
+                                                    alignItems="center"
+                                                    justifyContent="center"
+                                                    flexDirection="row"
+                                                    display="flex"
+                                                    textAlign="center"
+                                                    marginTop={20}
+                                                >
+                                                    <Pane
+                                                        alignItems="center"
+                                                        justifyContent="center"
+                                                        flexDirection="column"
+                                                        display="flex"
+                                                        textAlign="center"
+                                                        padding={10}
+                                                    >
+                                                        <Heading size={500}>Uploads</Heading>
+                                                        <Heading size={400}>{profile.files.length}</Heading>
+
+                                                    </Pane>
+                                                </Pane>
+                                                <NextLink href={`/${profile.username}`}>
+                                                    <button className="follow-button">View Profile</button>
+                                                </NextLink>
+                                            </Pane>
+                                        ))}
+                                    </ul>
+                                </Fragment>
+                                :
+                                <Fragment>
+
+                                </Fragment>
+                            }
+
+                        </Pane>
+
+                        <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Recent Uploads</Heading>
+
+                        <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
+                            <Pane
+                                alignItems="center"
+                                flexDirection="column"
+                                display="flex"
+                                marginLeft="auto"
+                                marginRight="auto"
+                                paddingTop={20}
+                                paddingBottom={40}
+                                paddingRight={20}
+                                paddingLeft={20}
+                            >
+
+                            <ul className='FileNames'>
+                                {recentUploads.map(userfile => (
+                                    <Pane key={userfile._id} userfile={userfile}
+
+                                        display="flex"
+                                        justifyContent="center"
+                                        flexDirection="column"
+                                        float="left"
+                                    >
+                                        <NextLink href={{ pathname: '[id]/[file_id]', query: { id: userfile.username, file: userfile._id }}} as={`${userfile.username}/${userfile._id}`}>
+                                            <Pane>
+                                                <div className="userfiles_container">
+                                                    <img className="userfiles" src={StorageLocation + userfile.filename}  />
+                                                    <a className="userfiles_overlay">{userfile.comments.length} <FontAwesomeIcon icon={faComment} /> {userfile.likes.length} <FontAwesomeIcon icon={faHeart} /></a>
+                                                </div>
+                                            </Pane>
+                                        </NextLink>
+
+                                    </Pane>
+                                ))}
+                            </ul>
+
+
                             </Pane>
                         </Pane>
-                 
-                        
-                    </Pane> 
 
-                    <Heading textAlign='center' size={600} marginTop={10}>Check our <Link href="/about" color="blue"><Heading size={600}>About</Heading></Link> page to find out more</Heading>
+                        <Footer ua={ua}/>
 
-                    <Heading textAlign='center' size={600} marginTop={10}>We are also Open Source. Check <Link href="https://github.com/CianOShea/IndieLink" target="_blank" color="blue"><Heading size={600}>here</Heading></Link>  for updates!</Heading>
+                    </UserAgent>
 
-                    <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Users</Heading>
+                    <UserAgent mobile>
+                        <Pane>
+                            <NewNav user={user} ua={ua}/>
+                        </Pane>
 
-                    <Pane 
-                        alignItems="center"
-                        justifyContent="center"
-                        flexDirection="row"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        paddingRight={10}
-                        paddingLeft={10}
-                        textAlign="center"
-                        marginBottom={50}
-                    >
-                        {
+                        <Heading padding={10} textAlign='center' size={800} marginTop={10}>What IndieLink can do for independent game developers!</Heading>
+
+
+                        <Pane marginTop={20} marginBottom={50} display="flex" flexDirection='row' textAlign='center' alignItems="center" justifyContent="center">
+
+                            <Pane display="flex" flex={1} flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                                <img className="article" src="../static/undraw/portfolio.png" />
+                                <Heading size={400} marginTop="default">Showcase Your Portfolio</Heading>
+                                <img className="article" src="../static/undraw/team.png" />
+                                <Heading size={400} marginTop="default">Create & Join Teams</Heading>
+                            </Pane>
+
+
+
+                            <Pane display="flex" flex={1} flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
+                                <img className="article" src="../static/undraw/jobs.png" />
+                                <Heading size={400} marginTop="default">Job Search</Heading>
+                                <img className="article" src="../static/undraw/article.png" />
+                                <Heading size={400} marginTop="default">Write Articles and Devlogs</Heading>
+                            </Pane>
+
+                        </Pane>
+
+                        <Heading textAlign='center' size={600} marginTop={10}>Check our <Link href="/about" color="blue"><Heading size={600}>About</Heading></Link> page to find out more</Heading>
+
+                        <Heading textAlign='center' size={600} marginTop={10}>We are also Open Source. Check <Link href="https://github.com/CianOShea/IndieLink" target="_blank" color="blue"><Heading size={600}>here</Heading></Link>  for updates!</Heading>
+
+                        <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Users</Heading>
+
+                        <Pane
+                            alignItems="center"
+                            justifyContent="center"
+                            flexDirection="row"
+                            display="flex"
+                            marginLeft="auto"
+                            marginRight="auto"
+                            paddingRight={10}
+                            paddingLeft={10}
+                            textAlign="center"
+                            marginBottom={50}
+                            >
+                            {
                             profiles.length > 0 ?
                             <Fragment>
                                 <ul>
                                     {profiles.map(profile => (
-                                        <Pane key={profile._id} profile={profile} 
+                                        <Pane key={profile._id} profile={profile}
                                             marginTop={20}
-                                            marginX={10} 
-                                            float="left"
+                                            marginX={10}
                                             elevation={2}
                                             hoverElevation={3}
                                             borderRadius={30}
                                             display="flex"
-                                            flexDirection="column"                                               
+                                            flexDirection="column"
                                             width={200}
                                             padding={20}
                                         >
-                                        
+
                                             <Avatar
                                                 marginLeft="auto"
                                                 marginRight="auto"
                                                 isSolid
                                                 size={100}
                                                 marginBottom={20}
-                                                name={profile.username}                                                    
+                                                name={profile.username}
                                                 alt={profile.username}
                                                 src={profile.avatar}
                                             />
-                                            
+
                                             <div className='cursor'>
                                                 <Link href={`/${profile.username}`} textDecoration="none">
                                                     <Heading size={800}>{profile.username}</Heading>
@@ -170,7 +332,7 @@ class index extends Component {
                                                 textAlign="center"
                                                 marginTop={20}
                                             >
-                                                <Pane 
+                                                <Pane
                                                     alignItems="center"
                                                     justifyContent="center"
                                                     flexDirection="column"
@@ -179,29 +341,29 @@ class index extends Component {
                                                     padding={10}
                                                 >
                                                     <Heading size={500}>Uploads</Heading>
-                                                    <Heading size={400}>{profile.files.length}</Heading>                                                        
+                                                    <Heading size={400}>{profile.files.length}</Heading>
 
-                                                </Pane>                                                   
-                                            </Pane>                            
+                                                </Pane>
+                                            </Pane>
                                             <NextLink href={`/${profile.username}`}>
-                                                <button className="follow-button">View Profile</button>  
+                                                <button className="follow-button">View Profile</button>
                                             </NextLink>
                                         </Pane>
-                                    ))}                   
-                                </ul> 
+                                    ))}
+                                </ul>
                             </Fragment>
                             :
                             <Fragment>
-                                
+
                             </Fragment>
-                        }
-                        
-                    </Pane>
+                            }
 
-                    <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Recent Uploads</Heading>
+                            </Pane>
 
-                    <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
-                        <Pane
+                            <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Recent Uploads</Heading>
+
+                            <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
+                            <Pane
                             alignItems="center"
                             flexDirection="column"
                             display="flex"
@@ -210,198 +372,38 @@ class index extends Component {
                             paddingTop={20}
                             paddingBottom={40}
                             paddingRight={20}
-                            paddingLeft={20}   
-                        >                              
+                            paddingLeft={20}
+                            >
 
-                        <ul className='FileNames'>
+                            <ul className='FileNames'>
                             {recentUploads.map(userfile => (
                                 <Pane key={userfile._id} userfile={userfile}
-                                    
+
                                     display="flex"
                                     justifyContent="center"
                                     flexDirection="column"
-                                    float="left"
                                 >
                                     <NextLink href={{ pathname: '[id]/[file_id]', query: { id: userfile.username, file: userfile._id }}} as={`${userfile.username}/${userfile._id}`}>
-                                        <Pane>
-                                            <div className="userfiles_container">                                        
-                                                <img className="userfiles" src={StorageLocation + userfile.filename}  /> 
-                                                <a className="userfiles_overlay">{userfile.comments.length} <FontAwesomeIcon icon={faComment} /> {userfile.likes.length} <FontAwesomeIcon icon={faHeart} /></a>
-                                            </div>                                                                    
-                                        </Pane>   
+                                    <Pane>
+                                        <div className="userfiles_container">
+                                            <img className="userfiles" src={StorageLocation + userfile.filename}  />
+                                            <a className="userfiles_overlay">{userfile.comments.length} <FontAwesomeIcon icon={faComment} /> {userfile.likes.length} <FontAwesomeIcon icon={faHeart} /></a>
+                                        </div>
+                                    </Pane>
                                     </NextLink>
 
                                 </Pane>
-                            ))}                    
-                        </ul>       
-                        
+                            ))}
+                            </ul>
 
-                        </Pane>
-                    </Pane>
-
-                    <Footer ua={ua}/>
-
-                </UserAgent>
-
-                <UserAgent mobile>
-                    <Pane>
-                        <NewNav user={user} ua={ua}/>
-                    </Pane>
-
-                    <Heading padding={10} textAlign='center' size={800} marginTop={10}>What IndieLink can do for independent game developers!</Heading>
-
-                                        
-                    <Pane marginTop={20} marginBottom={50} display="flex" flexDirection='row' textAlign='center' alignItems="center" justifyContent="center">
-                        
-                        <Pane display="flex" flex={1} flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
-                            <img className="article" src="../static/undraw/portfolio.png" />
-                            <Heading size={400} marginTop="default">Showcase Your Portfolio</Heading>
-                            <img className="article" src="../static/undraw/team.png" />    
-                            <Heading size={400} marginTop="default">Create & Join Teams</Heading>      
-                        </Pane>
-
-                
-
-                        <Pane display="flex" flex={1} flexDirection='column' textAlign='center' alignItems="center" justifyContent="center">
-                            <img className="article" src="../static/undraw/jobs.png" />
-                            <Heading size={400} marginTop="default">Job Search</Heading>
-                            <img className="article" src="../static/undraw/article.png" />
-                            <Heading size={400} marginTop="default">Write Articles and Devlogs</Heading> 
-                        </Pane> 
-                    
-                    </Pane>  
-
-                    <Heading textAlign='center' size={600} marginTop={10}>Check our <Link href="/about" color="blue"><Heading size={600}>About</Heading></Link> page to find out more</Heading>
-
-                    <Heading textAlign='center' size={600} marginTop={10}>We are also Open Source. Check <Link href="https://github.com/CianOShea/IndieLink" target="_blank" color="blue"><Heading size={600}>here</Heading></Link>  for updates!</Heading>
-
-                    <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Users</Heading>
-
-                    <Pane 
-                        alignItems="center"
-                        justifyContent="center"
-                        flexDirection="row"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        paddingRight={10}
-                        paddingLeft={10}
-                        textAlign="center"
-                        marginBottom={50}
-                        >
-                        {
-                        profiles.length > 0 ?
-                        <Fragment>
-                            <ul>
-                                {profiles.map(profile => (
-                                    <Pane key={profile._id} profile={profile} 
-                                        marginTop={20}
-                                        marginX={10} 
-                                        elevation={2}
-                                        hoverElevation={3}
-                                        borderRadius={30}
-                                        display="flex"
-                                        flexDirection="column"                                               
-                                        width={200}
-                                        padding={20}
-                                    >
-                                    
-                                        <Avatar
-                                            marginLeft="auto"
-                                            marginRight="auto"
-                                            isSolid
-                                            size={100}
-                                            marginBottom={20}
-                                            name={profile.username}                                                    
-                                            alt={profile.username}
-                                            src={profile.avatar}
-                                        />
-                                        
-                                        <div className='cursor'>
-                                            <Link href={`/${profile.username}`} textDecoration="none">
-                                                <Heading size={800}>{profile.username}</Heading>
-                                            </Link>
-                                        </div>
-
-                                        <Pane
-                                            alignItems="center"
-                                            justifyContent="center"
-                                            flexDirection="row"
-                                            display="flex"
-                                            textAlign="center"
-                                            marginTop={20}
-                                        >
-                                            <Pane 
-                                                alignItems="center"
-                                                justifyContent="center"
-                                                flexDirection="column"
-                                                display="flex"
-                                                textAlign="center"
-                                                padding={10}
-                                            >
-                                                <Heading size={500}>Uploads</Heading>
-                                                <Heading size={400}>{profile.files.length}</Heading>                                                        
-
-                                            </Pane>                                                   
-                                        </Pane>                            
-                                        <NextLink href={`/${profile.username}`}>
-                                            <button className="follow-button">View Profile</button>  
-                                        </NextLink>
-                                    </Pane>
-                                ))}                   
-                            </ul> 
-                        </Fragment>
-                        :
-                        <Fragment>
-                            
-                        </Fragment>
-                        }
-
-                        </Pane>
-
-                        <Heading textAlign='center' marginBottom={20} size={900} marginTop="default">Recent Uploads</Heading>
-
-                        <Pane clearfix display={"flex"} justifyContent="center" alignItems="center">
-                        <Pane
-                        alignItems="center"
-                        flexDirection="column"
-                        display="flex"
-                        marginLeft="auto"
-                        marginRight="auto"
-                        paddingTop={20}
-                        paddingBottom={40}
-                        paddingRight={20}
-                        paddingLeft={20}   
-                        >                              
-
-                        <ul className='FileNames'>
-                        {recentUploads.map(userfile => (
-                            <Pane key={userfile._id} userfile={userfile}
-                                
-                                display="flex"
-                                justifyContent="center"
-                                flexDirection="column"
-                            >
-                                <NextLink href={{ pathname: '[id]/[file_id]', query: { id: userfile.username, file: userfile._id }}} as={`${userfile.username}/${userfile._id}`}>
-                                <Pane>
-                                    <div className="userfiles_container">                                        
-                                        <img className="userfiles" src={StorageLocation + userfile.filename}  /> 
-                                        <a className="userfiles_overlay">{userfile.comments.length} <FontAwesomeIcon icon={faComment} /> {userfile.likes.length} <FontAwesomeIcon icon={faHeart} /></a>
-                                    </div>                                                                    
-                                </Pane>   
-                                </NextLink>
 
                             </Pane>
-                        ))}                    
-                        </ul>       
-
-
                         </Pane>
-                    </Pane>
-                
-                    <Footer ua={ua}/>
 
-                </UserAgent>
+                        <Footer ua={ua}/>
+
+                    </UserAgent>
+                </div>
             </UserAgentProvider>
         )
     }

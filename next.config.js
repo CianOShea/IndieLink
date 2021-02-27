@@ -9,8 +9,7 @@ module.exports = withCSS(withImages({
 
     publicRuntimeConfig: {
       // Will be available on both server and client
-      SERVER_URL: process.env.SERVER_URL
-      //SERVER_URL: 'http://localhost:3000'      
+      SERVER_URL: process.env.SERVER_URL || 'http://localhost:3000'
     },
     env: {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
